@@ -1,0 +1,8 @@
+vector coloumn
+Poppler for PDF to text
+queue service
+
+
+services need to run while using the system
+npm run dev
+php artisan queue:work

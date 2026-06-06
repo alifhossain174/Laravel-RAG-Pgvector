@@ -1,0 +1,108 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Jobs\ProcessDocumentJob;
+use App\Models\Document;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\View\View;
+
+class DocumentController extends Controller
+{
+    public function create(Request $request): View
+    {
+        $recentDocuments = $request->user()
+            ->documents()
+            ->latest()
+            ->limit(5)
+            ->get();
+
+        return view('documents.upload', [
+            'recentDocuments' => $recentDocuments,
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'title' => ['nullable', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'document' => ['required', 'file', 'mimes:pdf', 'mimetypes:application/pdf', 'max:20480'],
+        ]);
+
+        $file = $request->file('document');
+        $path = $file->store('documents/'.$request->user()->id, 'local');
+
+        $document = $request->user()->documents()->create([
+            'title' => $validated['title'] ?? null,
+            'description' => $validated['description'] ?? null,
+            'original_filename' => $file->getClientOriginalName(),
+            'file_path' => $path,
+            'mime_type' => $file->getClientMimeType(),
+            'file_size' => $file->getSize(),
+            'status' => Document::STATUS_UPLOADED,
+            'total_pages' => null,
+            'total_chunks' => 0,
+        ]);
+
+        ProcessDocumentJob::dispatch($document->id);
+
+        return redirect()
+            ->route('documents.show', $document)
+            ->with('success', 'Document uploaded successfully. Processing has started.');
+    }
+
+    public function index(Request $request): View
+    {
+        $search = trim((string) $request->query('search'));
+        $status = $request->query('status');
+
+        $documents = $request->user()
+            ->documents()
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($query) use ($search) {
+                    $query->where('title', 'like', '%'.$search.'%')
+                        ->orWhere('original_filename', 'like', '%'.$search.'%');
+                });
+            })
+            ->when(in_array($status, Document::STATUSES, true), function ($query) use ($status) {
+                $query->where('status', $status);
+            })
+            ->latest()
+            ->paginate(9)
+            ->withQueryString();
+
+        return view('documents.index', [
+            'documents' => $documents,
+            'statuses' => Document::STATUSES,
+            'search' => $search,
+            'selectedStatus' => in_array($status, Document::STATUSES, true) ? $status : null,
+        ]);
+    }
+
+    public function show(Document $document): View
+    {
+        $this->authorize('view', $document);
+
+        $document->load(['chunks' => fn ($query) => $query->limit(5)]);
+
+        return view('documents.show', [
+            'document' => $document,
+            'chunks' => $document->chunks,
+        ]);
+    }
+
+    public function destroy(Document $document): RedirectResponse
+    {
+        $this->authorize('delete', $document);
+
+        Storage::disk('local')->delete($document->file_path);
+        $document->delete();
+
+        return redirect()
+            ->route('documents.index')
+            ->with('success', 'Document deleted successfully.');
+    }
+}

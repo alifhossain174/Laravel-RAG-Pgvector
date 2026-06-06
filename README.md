@@ -7,6 +7,55 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## RAG Document Assistant
+
+This app lets verified users upload PDFs, process them into chunks, generate embeddings, create conversations, and ask document-scoped questions.
+
+### RAG flow
+
+1. A PDF is uploaded into private storage.
+2. The queue extracts text with Poppler/pdftotext.
+3. Text is chunked with page ranges.
+4. Gemini embeddings are stored in PostgreSQL pgvector.
+5. A chat question is embedded.
+6. pgvector retrieves the most relevant chunks inside the conversation scope.
+7. Gemini answers using only the retrieved context.
+8. Assistant messages store citation metadata in `messages.metadata`.
+
+### Environment variables
+
+```env
+PDFTOTEXT_PATH=
+EMBEDDING_PROVIDER=gemini
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=
+GEMINI_EMBEDDING_MODEL=gemini-embedding-2
+GEMINI_CHAT_MODEL=gemini-2.5-flash
+EMBEDDING_DIMENSIONS=1536
+LLM_TEMPERATURE=0.2
+LLM_MAX_OUTPUT_TOKENS=1200
+RAG_TOP_K=6
+RAG_MAX_CONTEXT_CHARS=12000
+RAG_RETRIEVAL_MAX_DISTANCE=
+RAG_MESSAGE_RATE_LIMIT_PER_MINUTE=20
+```
+
+### Testing RAG
+
+```bash
+php artisan queue:work
+php artisan rag:retrieve {conversation_ulid_or_id} "What are the key points?"
+php artisan rag:answer {conversation_ulid_or_id} "What actions are required?"
+php artisan test
+```
+
+### Known limitations
+
+- Text-based PDFs work best.
+- Scanned PDFs require OCR, which is not implemented yet.
+- Tables, charts, and graphs may not be fully understood.
+- Answers are limited by retrieved chunks and the selected conversation scope.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

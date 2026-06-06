@@ -1,0 +1,204 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Jobs\ProcessDocumentJob;
+use App\Jobs\GenerateDocumentEmbeddingsJob;
+use App\Models\Document;
+use App\Models\User;
+use App\Services\PdfExtractorService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
+use Tests\TestCase;
+
+class DocumentManagementTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_verified_user_can_upload_pdf_document(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+
+        $user = User::factory()->create();
+        $file = UploadedFile::fake()->create('policy.pdf', 128, 'application/pdf');
+
+        $response = $this
+            ->actingAs($user)
+            ->post(route('documents.store'), [
+                'title' => 'Procurement Policy',
+                'description' => 'Internal purchasing rules.',
+                'document' => $file,
+            ]);
+
+        $document = Document::query()->firstOrFail();
+
+        $response->assertRedirect(route('documents.show', $document));
+        $this->assertSame($user->id, $document->user_id);
+        $this->assertSame('uploaded', $document->status);
+        $this->assertNull($document->total_pages);
+        $this->assertSame(0, $document->total_chunks);
+        Storage::disk('local')->assertExists($document->file_path);
+        Queue::assertPushed(ProcessDocumentJob::class, fn (ProcessDocumentJob $job) => $job->documentId === $document->id);
+    }
+
+    public function test_process_document_job_extracts_text_and_creates_chunks(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+
+        $user = User::factory()->create();
+        $path = 'documents/'.$user->id.'/policy.pdf';
+        Storage::disk('local')->put($path, 'PDF bytes');
+
+        $document = $user->documents()->create([
+            'title' => 'Policy',
+            'original_filename' => 'policy.pdf',
+            'file_path' => $path,
+            'status' => 'uploaded',
+        ]);
+
+        $this->app->instance(PdfExtractorService::class, new class extends PdfExtractorService {
+            public function extractPages(string $absoluteFilePath): array
+            {
+                return [
+                    ['page' => 1, 'content' => str_repeat('This is page one policy text. ', 80)],
+                    ['page' => 2, 'content' => str_repeat('This is page two policy text. ', 80)],
+                ];
+            }
+        });
+
+        (new ProcessDocumentJob($document->id))->handle(
+            app(PdfExtractorService::class),
+            app(\App\Services\DocumentChunker::class)
+        );
+
+        $document->refresh();
+
+        $this->assertSame('chunked', $document->status);
+        $this->assertGreaterThan(0, $document->total_chunks);
+        $this->assertNotNull($document->processed_at);
+        $this->assertDatabaseHas('document_chunks', [
+            'document_id' => $document->id,
+            'chunk_index' => 1,
+            'page_start' => 1,
+        ]);
+        Queue::assertPushed(GenerateDocumentEmbeddingsJob::class, fn (GenerateDocumentEmbeddingsJob $job) => $job->documentId === $document->id);
+    }
+
+    public function test_documents_index_only_shows_current_users_documents(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+
+        $user->documents()->create([
+            'title' => 'Visible Document',
+            'original_filename' => 'visible.pdf',
+            'file_path' => 'documents/'.$user->id.'/visible.pdf',
+            'status' => 'uploaded',
+        ]);
+
+        $otherUser->documents()->create([
+            'title' => 'Hidden Document',
+            'original_filename' => 'hidden.pdf',
+            'file_path' => 'documents/'.$otherUser->id.'/hidden.pdf',
+            'status' => 'uploaded',
+        ]);
+
+        $response = $this->actingAs($user)->get(route('documents.index'));
+
+        $response->assertOk();
+        $response->assertSee('Visible Document');
+        $response->assertDontSee('Hidden Document');
+    }
+
+    public function test_user_cannot_view_another_users_document(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+
+        $document = $otherUser->documents()->create([
+            'title' => 'Private Document',
+            'original_filename' => 'private.pdf',
+            'file_path' => 'documents/'.$otherUser->id.'/private.pdf',
+            'status' => 'uploaded',
+        ]);
+
+        $this
+            ->actingAs($user)
+            ->get(route('documents.show', $document))
+            ->assertForbidden();
+    }
+
+    public function test_document_routes_use_ulid_instead_of_database_id(): void
+    {
+        $user = User::factory()->create();
+
+        $document = $user->documents()->create([
+            'title' => 'Public Route Key',
+            'original_filename' => 'public-route-key.pdf',
+            'file_path' => 'documents/'.$user->id.'/public-route-key.pdf',
+            'status' => 'uploaded',
+        ]);
+
+        $this->assertNotEmpty($document->ulid);
+        $this->assertStringEndsWith('/documents/'.$document->ulid, route('documents.show', $document));
+
+        $this
+            ->actingAs($user)
+            ->get('/documents/'.$document->ulid)
+            ->assertOk();
+
+        $this
+            ->actingAs($user)
+            ->get('/documents/'.$document->id)
+            ->assertNotFound();
+    }
+
+    public function test_chat_workspace_is_conversation_centric(): void
+    {
+        $user = User::factory()->create();
+
+        $user->documents()->create([
+            'title' => 'Workspace Document',
+            'original_filename' => 'workspace-document.pdf',
+            'file_path' => 'documents/'.$user->id.'/workspace-document.pdf',
+            'status' => 'ready',
+            'total_pages' => 8,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('chat.index'));
+
+        $response->assertOk();
+        $response->assertSee('Conversations');
+        $response->assertSee('New conversation');
+        $response->assertSee('Workspace Document');
+        $response->assertSee('Select all documents');
+    }
+
+    public function test_owner_can_delete_document_and_stored_file(): void
+    {
+        Storage::fake('local');
+
+        $user = User::factory()->create();
+        $path = 'documents/'.$user->id.'/delete-me.pdf';
+        Storage::disk('local')->put($path, 'PDF bytes');
+
+        $document = $user->documents()->create([
+            'title' => 'Delete Me',
+            'original_filename' => 'delete-me.pdf',
+            'file_path' => $path,
+            'status' => 'uploaded',
+        ]);
+
+        $this
+            ->actingAs($user)
+            ->delete(route('documents.destroy', $document))
+            ->assertRedirect(route('documents.index'));
+
+        $this->assertDatabaseMissing('documents', ['id' => $document->id]);
+        Storage::disk('local')->assertMissing($path);
+    }
+}
