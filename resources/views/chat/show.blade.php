@@ -167,6 +167,11 @@
                                 <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-700 shadow-sm">
                                     @include('partials.markdown-message', ['content' => $message->content])
                                 </div>
+                                @if (($message->metadata['truncated'] ?? false) === true)
+                                    <div class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium leading-5 text-amber-800">
+                                        This answer reached the model output limit and may be incomplete. Ask a more focused follow-up for the remaining details.
+                                    </div>
+                                @endif
                                 @php
                                     $sources = $message->metadata['sources'] ?? [];
                                 @endphp

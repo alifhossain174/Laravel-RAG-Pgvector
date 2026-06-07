@@ -42,8 +42,8 @@ class AnswerRagQuestionCommand extends Command
         $this->info('Question: '.$question);
         $this->line('Conversation: '.$conversation->title.' ['.$conversation->ulid.']');
         $this->line('Provider/model: '.$llm->provider().' / '.$llm->model());
-        $this->line('Top K: '.($limit ?: config('services.rag.top_k', 6)));
-        $this->line('Max context chars: '.config('services.rag.max_context_chars', 12000));
+        $this->line('Top K: '.$retrieval->limitForQuestion($question, $limit));
+        $this->line('Max context chars: '.config('services.rag.max_context_chars', 24000));
         $this->newLine();
 
         $chunks = $retrieval->retrieve($conversation, $question, $limit);

@@ -74,6 +74,72 @@ class LlmServiceTest extends TestCase
         });
     }
 
+    public function test_answer_with_context_continues_when_gemini_hits_max_tokens(): void
+    {
+        config([
+            'services.llm.provider' => 'gemini',
+            'services.llm.temperature' => 0.2,
+            'services.llm.max_output_tokens' => 100,
+            'services.llm.continuation_attempts' => 1,
+            'services.gemini.api_key' => 'test-key',
+            'services.gemini.chat_model' => 'gemini-2.5-flash',
+        ]);
+
+        Http::fake([
+            'generativelanguage.googleapis.com/*' => Http::sequence()
+                ->push([
+                    'candidates' => [
+                        [
+                            'content' => [
+                                'parts' => [
+                                    ['text' => "**Performance:**\n- **Website Load Speed:**"],
+                                ],
+                            ],
+                            'finishReason' => 'MAX_TOKENS',
+                        ],
+                    ],
+                    'usageMetadata' => [
+                        'promptTokenCount' => 100,
+                        'candidatesTokenCount' => 100,
+                    ],
+                ])
+                ->push([
+                    'candidates' => [
+                        [
+                            'content' => [
+                                'parts' => [
+                                    ['text' => 'Needs improvement based on the audit findings [SEO Report, page 4].'],
+                                ],
+                            ],
+                            'finishReason' => 'STOP',
+                        ],
+                    ],
+                ]),
+        ]);
+
+        $result = app(LlmService::class)->answerWithContext(
+            question: 'Summarize this document',
+            retrievedChunks: [
+                [
+                    'document_title' => 'SEO Report',
+                    'page_start' => 4,
+                    'page_end' => 4,
+                    'content' => 'Website load speed needs improvement.',
+                    'score' => 0.91,
+                ],
+            ],
+        );
+
+        $this->assertStringContainsString('Website Load Speed', $result['answer']);
+        $this->assertStringContainsString('Needs improvement', $result['answer']);
+        $this->assertSame('MAX_TOKENS', $result['raw']['finishReason']);
+        $this->assertSame('STOP', $result['raw']['continuationFinishReason']);
+        $this->assertTrue($result['raw']['continuationUsed']);
+        $this->assertFalse($result['raw']['truncated']);
+
+        Http::assertSentCount(2);
+    }
+
     public function test_answer_with_context_requires_api_key(): void
     {
         config([

@@ -34,6 +34,8 @@ Rules:
 - Format answers in GitHub-flavored Markdown.
 - Use compact Markdown tables when the answer compares items, lists fields, or presents structured results.
 - Keep table cells short and include citations in the relevant row or bullet when possible.
+- Always finish the final section; do not end with an empty heading or unfinished bullet.
+- For document summaries, provide a complete but compact overview with key findings and recommended actions.
 TEXT;
     }
 

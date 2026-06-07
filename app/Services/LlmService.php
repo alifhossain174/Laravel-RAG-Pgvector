@@ -46,6 +46,93 @@ class LlmService
         }
 
         $prompt = $this->promptBuilder->build($question, $retrievedChunks, $conversationHistory);
+        $contents = [
+            $this->textContent('user', $prompt),
+        ];
+
+        $payload = $this->sendGenerateContentRequest($apiKey, $contents);
+        $answer = $this->extractAnswer($payload);
+        $finishReason = $this->finishReason($payload);
+        $continuationUsed = false;
+        $continuationFinishReason = null;
+        $truncated = $finishReason === 'MAX_TOKENS';
+
+        for ($attempt = 0; $truncated && $attempt < $this->continuationAttempts(); $attempt++) {
+            $continuationUsed = true;
+
+            try {
+                $continuationPayload = $this->sendGenerateContentRequest($apiKey, [
+                    $this->textContent('user', $prompt),
+                    $this->textContent('model', $answer),
+                    $this->textContent('user', $this->continuationInstruction()),
+                ]);
+
+                $answer = $this->joinAnswerParts($answer, $this->extractAnswer($continuationPayload));
+                $continuationFinishReason = $this->finishReason($continuationPayload);
+                $truncated = $continuationFinishReason === 'MAX_TOKENS';
+            } catch (Throwable $exception) {
+                Log::warning('Gemini chat continuation failed after max token stop.', [
+                    'provider' => $this->provider(),
+                    'model' => $this->model(),
+                    'message' => $exception->getMessage(),
+                ]);
+
+                break;
+            }
+        }
+
+        if ($truncated) {
+            $answer = $this->joinAnswerParts(
+                $answer,
+                '> This answer reached the model output limit and may be incomplete. Ask a narrower follow-up question for the remaining details.'
+            );
+        }
+
+        return [
+            'answer' => $answer,
+            'provider' => $this->provider(),
+            'model' => $this->model(),
+            'raw' => [
+                'usageMetadata' => $payload['usageMetadata'] ?? null,
+                'finishReason' => $finishReason,
+                'continuationFinishReason' => $continuationFinishReason,
+                'continuationUsed' => $continuationUsed,
+                'truncated' => $truncated,
+            ],
+        ];
+    }
+
+    public function provider(): string
+    {
+        return (string) config('services.llm.provider', 'gemini');
+    }
+
+    public function model(): string
+    {
+        return (string) config('services.gemini.chat_model', 'gemini-2.5-flash');
+    }
+
+    private function temperature(): float
+    {
+        return (float) config('services.llm.temperature', 0.2);
+    }
+
+    private function maxOutputTokens(): int
+    {
+        return (int) config('services.llm.max_output_tokens', 3000);
+    }
+
+    private function continuationAttempts(): int
+    {
+        return max(0, min((int) config('services.llm.continuation_attempts', 1), 2));
+    }
+
+    /**
+     * @param  array<int, array{role: string, parts: array<int, array{text: string}>}>  $contents
+     * @return array<string, mixed>
+     */
+    private function sendGenerateContentRequest(string $apiKey, array $contents): array
+    {
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model()}:generateContent";
 
         try {
@@ -53,17 +140,10 @@ class LlmService
                 'x-goog-api-key' => $apiKey,
                 'Content-Type' => 'application/json',
             ])
-                ->timeout(45)
+                ->timeout(60)
                 ->retry(3, 750)
                 ->post($url, [
-                    'contents' => [
-                        [
-                            'role' => 'user',
-                            'parts' => [
-                                ['text' => $prompt],
-                            ],
-                        ],
-                    ],
+                    'contents' => $contents,
                     'generationConfig' => [
                         'temperature' => $this->temperature(),
                         'maxOutputTokens' => $this->maxOutputTokens(),
@@ -90,37 +170,36 @@ class LlmService
             throw new RuntimeException("Gemini chat request failed with HTTP {$response->status()}.", $response->status());
         }
 
-        $answer = $this->extractAnswer($response->json());
+        $payload = $response->json();
 
+        if (! is_array($payload)) {
+            throw new RuntimeException('Gemini chat response was not a valid JSON object.');
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @return array{role: string, parts: array<int, array{text: string}>}
+     */
+    private function textContent(string $role, string $text): array
+    {
         return [
-            'answer' => $answer,
-            'provider' => $this->provider(),
-            'model' => $this->model(),
-            'raw' => [
-                'usageMetadata' => $response->json('usageMetadata'),
-                'finishReason' => $response->json('candidates.0.finishReason'),
+            'role' => $role,
+            'parts' => [
+                ['text' => $text],
             ],
         ];
     }
 
-    public function provider(): string
+    private function continuationInstruction(): string
     {
-        return (string) config('services.llm.provider', 'gemini');
+        return 'Continue the answer from exactly where it stopped. Do not repeat earlier content. Complete any unfinished heading, bullet list, or table. Keep using citations from the selected document context.';
     }
 
-    public function model(): string
+    private function joinAnswerParts(string $answer, string $continuation): string
     {
-        return (string) config('services.gemini.chat_model', 'gemini-2.5-flash');
-    }
-
-    private function temperature(): float
-    {
-        return (float) config('services.llm.temperature', 0.2);
-    }
-
-    private function maxOutputTokens(): int
-    {
-        return (int) config('services.llm.max_output_tokens', 1200);
+        return trim($answer)."\n\n".trim($continuation);
     }
 
     private function extractAnswer(array $payload): string
@@ -141,6 +220,13 @@ class LlmService
         }
 
         return trim($answer);
+    }
+
+    private function finishReason(array $payload): ?string
+    {
+        $finishReason = data_get($payload, 'candidates.0.finishReason');
+
+        return is_string($finishReason) ? $finishReason : null;
     }
 
 }

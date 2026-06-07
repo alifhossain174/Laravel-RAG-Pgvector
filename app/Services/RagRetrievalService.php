@@ -28,7 +28,7 @@ class RagRetrievalService
      */
     public function retrieve(Conversation $conversation, string $question, ?int $limit = null): array
     {
-        $limit = $this->topK($limit);
+        $limit = $this->limitForQuestion($question, $limit);
         $documentIds = $this->searchableDocumentIds($conversation);
 
         if ($documentIds->isEmpty()) {
@@ -100,6 +100,21 @@ class RagRetrievalService
             ->map(fn (mixed $id): int => (int) $id);
     }
 
+    public function limitForQuestion(string $question, ?int $limit = null): int
+    {
+        if ($limit !== null) {
+            return $this->clampLimit($limit);
+        }
+
+        $configuredLimit = (int) config('services.rag.top_k', 6);
+
+        if ($this->isBroadSummaryQuestion($question)) {
+            $configuredLimit = max($configuredLimit, (int) config('services.rag.summary_top_k', 12));
+        }
+
+        return $this->clampLimit($configuredLimit);
+    }
+
     private function maxDistance(): ?float
     {
         $value = config('services.rag.retrieval_max_distance');
@@ -111,11 +126,22 @@ class RagRetrievalService
         return (float) $value;
     }
 
-    private function topK(?int $limit): int
+    private function clampLimit(int $limit): int
     {
-        $limit = $limit ?: (int) config('services.rag.top_k', 6);
-
         return max(1, min($limit, 20));
+    }
+
+    private function isBroadSummaryQuestion(string $question): bool
+    {
+        $question = str($question)->lower()->squish()->toString();
+
+        return str_contains($question, 'summarize')
+            || str_contains($question, 'summary')
+            || str_contains($question, 'overview')
+            || str_contains($question, 'main points')
+            || str_contains($question, 'key points')
+            || str_contains($question, 'whole document')
+            || str_contains($question, 'entire document');
     }
 
     private function candidateLimit(int $limit): int
@@ -125,7 +151,7 @@ class RagRetrievalService
 
     private function maxContextChars(): int
     {
-        $value = (int) config('services.rag.max_context_chars', 12000);
+        $value = (int) config('services.rag.max_context_chars', 24000);
 
         return max(1000, $value);
     }

@@ -83,6 +83,10 @@ class ConversationMessageController extends Controller
                 metadata: [
                     'provider' => $result['provider'],
                     'model' => $result['model'],
+                    'finish_reason' => data_get($result, 'raw.finishReason'),
+                    'continuation_finish_reason' => data_get($result, 'raw.continuationFinishReason'),
+                    'continuation_used' => (bool) data_get($result, 'raw.continuationUsed', false),
+                    'truncated' => (bool) data_get($result, 'raw.truncated', false),
                     'sources' => $this->formatSources($chunks),
                 ]
             );

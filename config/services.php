@@ -46,7 +46,8 @@ return [
     'llm' => [
         'provider' => env('LLM_PROVIDER', 'gemini'),
         'temperature' => env('LLM_TEMPERATURE', 0.2),
-        'max_output_tokens' => env('LLM_MAX_OUTPUT_TOKENS', 1200),
+        'max_output_tokens' => env('LLM_MAX_OUTPUT_TOKENS', 3000),
+        'continuation_attempts' => env('LLM_CONTINUATION_ATTEMPTS', 1),
     ],
 
     'gemini' => [
@@ -58,7 +59,8 @@ return [
 
     'rag' => [
         'top_k' => env('RAG_TOP_K', 6),
-        'max_context_chars' => env('RAG_MAX_CONTEXT_CHARS', 12000),
+        'summary_top_k' => env('RAG_SUMMARY_TOP_K', 12),
+        'max_context_chars' => env('RAG_MAX_CONTEXT_CHARS', 24000),
         'retrieval_max_distance' => env('RAG_RETRIEVAL_MAX_DISTANCE'),
         'message_rate_limit_per_minute' => env('RAG_MESSAGE_RATE_LIMIT_PER_MINUTE', 20),
     ],
