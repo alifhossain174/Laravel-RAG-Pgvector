@@ -18,8 +18,8 @@
 @extends('layouts.app')
 
 @section('content')
-    <div class="grid min-w-0 min-h-[calc(100vh-9rem)] gap-6 overflow-x-hidden lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
-        <aside class="min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)]">
+    <div class="grid min-w-0 gap-6 overflow-x-hidden lg:h-[calc(100vh-9rem)] lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:overflow-hidden">
+        <aside class="min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm lg:h-full lg:overflow-hidden">
             <div class="border-b border-slate-200 p-5">
                 <div class="flex items-center justify-between gap-3">
                     <div>
@@ -100,7 +100,7 @@
             @endif
         </aside>
 
-        <section class="min-w-0 overflow-hidden flex min-h-[calc(100vh-9rem)] flex-col rounded-lg border border-slate-200 bg-white shadow-sm">
+        <section class="min-w-0 overflow-hidden flex min-h-[calc(100vh-9rem)] flex-col rounded-lg border border-slate-200 bg-white shadow-sm lg:h-full lg:min-h-0">
             @if ($conversation)
                 <div class="border-b border-slate-200 px-5 py-4">
                     <div class="flex flex-col justify-between gap-4 xl:flex-row xl:items-start">
@@ -203,7 +203,7 @@
                     </div>
                 </div>
 
-                <div id="messageThread" class="min-w-0 flex-1 space-y-6 overflow-y-auto bg-slate-50/60 p-5">
+                <div id="messageThread" class="min-w-0 flex-1 space-y-6 overflow-y-auto overscroll-contain bg-slate-50/60 p-5">
                     @forelse ($conversation->messages as $message)
                         @if ($message->role === \App\Models\Message::ROLE_USER)
                             <article class="flex justify-end">
@@ -446,7 +446,9 @@
 
             const scrollToBottom = () => {
                 if (messageThread) {
-                    messageThread.scrollTop = messageThread.scrollHeight;
+                    requestAnimationFrame(() => {
+                        messageThread.scrollTop = messageThread.scrollHeight;
+                    });
                 }
             };
 
@@ -506,6 +508,8 @@
             });
 
             scrollToBottom();
+            window.addEventListener('load', scrollToBottom);
+            setTimeout(scrollToBottom, 100);
         })();
     </script>
 @endsection
