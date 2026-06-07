@@ -1,6 +1,6 @@
 @php
     $isMarketing = true;
-    $title = 'Chat with your PDFs';
+    $title = 'DocuMind';
     $features = [
         ['title' => 'PDF Upload', 'body' => 'Bring contracts, manuals, reports, policies, and research papers into one searchable workspace.'],
         ['title' => 'AI Question Answering', 'body' => 'Ask plain-language questions and receive concise answers drafted from the selected document.'],
@@ -18,10 +18,10 @@
             <div>
                 <p class="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-700">Document intelligence</p>
                 <h1 class="mt-5 max-w-3xl text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
-                    Chat with your PDFs
+                    DocuMind
                 </h1>
                 <p class="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
-                    Upload documents, let the system prepare searchable chunks, then ask questions and review source-backed answers in a focused SaaS workspace.
+                    DocuMind turns uploaded PDFs into source-backed answers with page citations and document-scoped conversations.
                 </p>
                 <div class="mt-8 flex flex-col gap-3 sm:flex-row">
                     <a href="{{ route('documents.create') }}" class="rounded-lg bg-indigo-600 px-5 py-3 text-center text-sm font-semibold text-white shadow-sm shadow-indigo-200 hover:bg-indigo-700">
@@ -100,7 +100,7 @@
                 <p class="mt-4 max-w-2xl text-sm leading-6 text-slate-300">Upload PDFs, create document-scoped conversations, and ask questions with retrieved source citations.</p>
             </div>
             <div class="rounded-lg border border-white/10 bg-white/5 p-5">
-                <p class="text-sm text-slate-300">RAG workflow</p>
+                <p class="text-sm text-slate-300">DocuMind workflow</p>
                 <p class="mt-3 text-3xl font-semibold">PDF to answer</p>
                 <p class="mt-3 text-sm text-slate-300">Private uploads, page-aware chunks, Gemini embeddings, pgvector retrieval, and cited answers.</p>
             </div>
@@ -109,7 +109,7 @@
 
     <footer class="border-t border-slate-200 bg-white py-8">
         <div class="mx-auto flex max-w-7xl flex-col gap-3 px-4 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-            <p>RAG Docs</p>
+            <p>DocuMind</p>
             <p>Built with Laravel Blade and Tailwind CSS</p>
         </div>
     </footer>

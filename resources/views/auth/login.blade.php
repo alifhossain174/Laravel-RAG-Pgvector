@@ -42,7 +42,7 @@
         </button>
 
         <p class="text-center text-sm text-slate-600">
-            New to RAG Docs?
+            New to DocuMind?
             <a href="{{ route('register') }}" class="font-semibold text-indigo-700 hover:text-indigo-800">Create an account</a>
         </p>
     </form>

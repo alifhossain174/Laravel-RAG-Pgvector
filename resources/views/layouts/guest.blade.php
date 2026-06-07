@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ $attributes->get('title', config('app.name', 'RAG Docs')) }}</title>
+    <title>{{ $attributes->get('title', config('app.name', 'DocuMind')) }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-slate-50 font-sans text-slate-900 antialiased">
@@ -12,8 +12,8 @@
     <div class="mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-6xl items-center gap-8 lg:grid-cols-[minmax(0,1fr)_460px] xl:gap-12">
         <section class="hidden rounded-lg border border-slate-200 bg-white p-8 shadow-sm lg:flex lg:min-h-[620px] lg:flex-col xl:p-10">
             <a href="{{ route('home') }}" class="flex items-center gap-3 font-semibold text-slate-950">
-                <span class="grid size-10 place-items-center rounded-lg bg-indigo-600 text-sm font-bold text-white">R</span>
-                <span>RAG Docs</span>
+                <span class="grid size-10 place-items-center rounded-lg bg-indigo-600 text-sm font-bold text-white">D</span>
+                <span>DocuMind</span>
             </a>
 
             <div class="flex flex-1 items-center">
@@ -41,8 +41,8 @@
             <div class="mx-auto w-full max-w-md">
                 <div class="mb-8 lg:hidden">
                     <a href="{{ route('home') }}" class="flex items-center justify-center gap-3 font-semibold text-slate-950">
-                        <span class="grid size-10 place-items-center rounded-lg bg-indigo-600 text-sm font-bold text-white">R</span>
-                        <span>RAG Docs</span>
+                        <span class="grid size-10 place-items-center rounded-lg bg-indigo-600 text-sm font-bold text-white">D</span>
+                        <span>DocuMind</span>
                     </a>
                 </div>
 

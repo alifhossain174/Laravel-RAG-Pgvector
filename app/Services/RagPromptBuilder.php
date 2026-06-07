@@ -31,6 +31,9 @@ Rules:
 - If page information is missing, cite the document title only.
 - Be concise but helpful.
 - Prefer bullet points for summaries, lists, deadlines, requirements, and action items.
+- Format answers in GitHub-flavored Markdown.
+- Use compact Markdown tables when the answer compares items, lists fields, or presents structured results.
+- Keep table cells short and include citations in the relevant row or bullet when possible.
 TEXT;
     }
 

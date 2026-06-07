@@ -1,7 +1,7 @@
 <x-guest-layout
     title="Reset password"
     heading="Choose a new password"
-    description="Use the reset token from your email to secure your RAG Docs account."
+    description="Use the reset token from your email to secure your DocuMind account."
 >
     <form method="POST" action="{{ route('password.store') }}" class="space-y-5">
         @csrf

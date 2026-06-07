@@ -330,4 +330,33 @@ class ConversationFoundationTest extends TestCase
             ])
             ->assertSessionHasErrors('content');
     }
+
+    public function test_chat_show_renders_assistant_markdown_as_structured_html(): void
+    {
+        $user = User::factory()->create();
+
+        $conversation = $user->conversations()->create([
+            'title' => 'Markdown rendering',
+            'scope' => Conversation::SCOPE_ALL,
+        ]);
+
+        $conversation->messages()->create([
+            'role' => 'assistant',
+            'content' => implode("\n", [
+                '**Summary**',
+                '',
+                '| Field | Value |',
+                '| --- | --- |',
+                '| Grade | C [SEO Report, page 1] |',
+            ]),
+        ]);
+
+        $this
+            ->actingAs($user)
+            ->get(route('chat.show', $conversation))
+            ->assertOk()
+            ->assertSee('<strong>Summary</strong>', false)
+            ->assertSee('<table>', false)
+            ->assertSee('<td>Grade</td>', false);
+    }
 }

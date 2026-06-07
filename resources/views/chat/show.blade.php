@@ -1,5 +1,5 @@
 @php
-    $title = 'Document Chat';
+    $title = 'DocuMind Chat';
     $selectedDocumentCount = $scopedDocuments->count();
     $isAllScope = $conversation?->scope === \App\Models\Conversation::SCOPE_ALL;
     $scopeBadgeLabel = $conversation
@@ -103,7 +103,7 @@
                 <div class="border-b border-slate-200 px-5 py-4">
                     <div class="flex flex-col justify-between gap-4 xl:flex-row xl:items-start">
                         <div class="min-w-0">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-indigo-700">Document Chat</p>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-indigo-700">DocuMind Chat</p>
                             <h2 class="mt-1 break-words text-xl font-semibold tracking-tight text-slate-950">{{ $conversation->title }}</h2>
                             <div class="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold">
                                 <span class="rounded-full bg-indigo-50 px-2.5 py-1 text-indigo-700 ring-1 ring-indigo-100">{{ $scopeBadgeLabel }}</span>
@@ -164,8 +164,8 @@
                         @else
                             <article class="max-w-3xl">
                                 <p class="mb-1 text-xs font-semibold text-slate-500">Assistant</p>
-                                <div class="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-700 shadow-sm">
-                                    {{ $message->content }}
+                                <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-700 shadow-sm">
+                                    @include('partials.markdown-message', ['content' => $message->content])
                                 </div>
                                 @php
                                     $sources = $message->metadata['sources'] ?? [];

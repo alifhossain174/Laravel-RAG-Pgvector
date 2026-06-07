@@ -1,6 +1,6 @@
-# RAG Docs - Laravel PDF Document Assistant
+# DocuMind - AI PDF Document Assistant
 
-RAG Docs is a full-stack Laravel application for uploading PDFs, processing them into searchable chunks, storing vector embeddings with PostgreSQL pgvector, and answering document-scoped questions with source citations.
+DocuMind is a full-stack Laravel application for uploading PDFs, processing them into searchable chunks, storing vector embeddings with PostgreSQL pgvector, and answering document-scoped questions with source citations.
 
 The project is built as a practical Retrieval-Augmented Generation application: users verify their email, upload private PDFs, wait for background processing, create conversations around one or more documents, and ask questions that are answered only from the selected document context.
 
@@ -381,7 +381,7 @@ php artisan queue:work
 
 4. Upload a text-based PDF.
 5. Wait until the document status becomes `Ready`.
-6. Open Document Chat.
+6. Open DocuMind Chat.
 7. Create a conversation with one or more ready documents.
 8. Ask a question related to the selected document content.
 9. Confirm the assistant response includes source citation cards.

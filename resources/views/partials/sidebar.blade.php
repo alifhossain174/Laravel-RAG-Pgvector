@@ -3,15 +3,15 @@
         ['label' => 'Dashboard', 'href' => route('dashboard'), 'active' => ['dashboard']],
         ['label' => 'Upload Document', 'href' => route('documents.create'), 'active' => ['documents.create']],
         ['label' => 'Documents', 'href' => route('documents.index'), 'active' => ['documents.index', 'documents.show']],
-        ['label' => 'Document Chat', 'href' => route('chat.index'), 'active' => ['chat.index', 'chat.show']],
+        ['label' => 'DocuMind Chat', 'href' => route('chat.index'), 'active' => ['chat.index', 'chat.show']],
     ];
 @endphp
 
 <aside class="hidden min-h-screen w-72 shrink-0 border-r border-slate-200 bg-white lg:sticky lg:top-0 lg:flex lg:flex-col">
     <div class="flex items-center gap-3 border-b border-slate-200 px-6 py-5">
         <a href="{{ route('dashboard') }}" class="flex items-center gap-3 font-semibold text-slate-950">
-            <span class="grid size-10 place-items-center rounded-lg bg-indigo-600 text-sm font-bold text-white">R</span>
-            <span>RAG Docs</span>
+            <span class="grid size-10 place-items-center rounded-lg bg-indigo-600 text-sm font-bold text-white">D</span>
+            <span>DocuMind</span>
         </a>
     </div>
 
