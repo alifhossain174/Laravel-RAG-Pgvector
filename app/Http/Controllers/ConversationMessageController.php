@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\GeminiRateLimitExceededException;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Services\GeminiRateLimitService;
 use App\Services\LlmService;
 use App\Services\RagRetrievalService;
 use Illuminate\Http\RedirectResponse;
@@ -21,6 +23,7 @@ class ConversationMessageController extends Controller
         Conversation $conversation,
         RagRetrievalService $retrieval,
         LlmService $llm,
+        GeminiRateLimitService $rateLimits,
     ): RedirectResponse
     {
         $this->authorize('view', $conversation);
@@ -30,6 +33,14 @@ class ConversationMessageController extends Controller
         $validated = $request->validate([
             'content' => ['required', 'string', 'max:4000'],
         ]);
+
+        $quota = $rateLimits->chatQuestionCheck($validated['content']);
+
+        if (! $quota['allowed']) {
+            throw ValidationException::withMessages([
+                'content' => $quota['message'],
+            ]);
+        }
 
         DB::transaction(function () use ($conversation, $validated): void {
             if (! $conversation->messages()->exists() && $this->hasGenericTitle($conversation)) {
@@ -88,6 +99,16 @@ class ConversationMessageController extends Controller
                     'continuation_used' => (bool) data_get($result, 'raw.continuationUsed', false),
                     'truncated' => (bool) data_get($result, 'raw.truncated', false),
                     'sources' => $this->formatSources($chunks),
+                ]
+            );
+        } catch (GeminiRateLimitExceededException $exception) {
+            $this->storeAssistantMessage(
+                conversation: $conversation,
+                content: $exception->getMessage(),
+                metadata: [
+                    'sources' => [],
+                    'error' => true,
+                    'rate_limited' => true,
                 ]
             );
         } catch (Throwable $exception) {

@@ -11,6 +11,7 @@ class LlmService
 {
     public function __construct(
         private readonly RagPromptBuilder $promptBuilder,
+        private readonly GeminiRateLimitService $rateLimits,
     ) {
     }
 
@@ -134,6 +135,11 @@ class LlmService
     private function sendGenerateContentRequest(string $apiKey, array $contents): array
     {
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model()}:generateContent";
+        $this->rateLimits->consumeOrFail(
+            model: $this->model(),
+            tokens: $this->estimateRequestTokens($contents),
+            label: 'Gemini chat'
+        );
 
         try {
             $response = Http::withHeaders([
@@ -177,6 +183,16 @@ class LlmService
         }
 
         return $payload;
+    }
+
+    private function estimateRequestTokens(array $contents): int
+    {
+        $text = collect($contents)
+            ->flatMap(fn (array $content): array => $content['parts'] ?? [])
+            ->map(fn (array $part): string => (string) ($part['text'] ?? ''))
+            ->implode("\n");
+
+        return $this->rateLimits->estimateTextTokens($text) + $this->maxOutputTokens();
     }
 
     /**

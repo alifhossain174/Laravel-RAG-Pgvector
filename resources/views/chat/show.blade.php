@@ -11,6 +11,8 @@
     $suggestions = $conversation && ! $isAllScope && $selectedDocumentCount === 1
         ? ['Summarize this document', 'What are the key points?', 'What are the important dates or deadlines?', 'What actions are required?']
         : ['Summarize selected documents', 'What are the key points?', 'What are the important dates or deadlines?', 'What actions are required?', 'Compare information across selected documents'];
+    $chatBlocked = ($geminiQuota['enabled'] ?? false) && ! ($geminiQuota['can_ask'] ?? true);
+    $chatBlockedMessage = $geminiQuota['blocked_message'] ?? 'Gemini free-tier limit reached. Try again later.';
 @endphp
 
 @extends('layouts.app')
@@ -146,6 +148,57 @@
                                 </div>
                             </details>
 
+                            @if ($geminiQuota['enabled'] ?? false)
+                                <div class="rounded-lg border {{ $chatBlocked ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white' }} p-3">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div>
+                                            <p class="text-sm font-semibold text-slate-900">Gemini free limits</p>
+                                            @if ($chatBlocked)
+                                                <p class="mt-1 text-xs font-medium leading-5 text-amber-800">{{ $chatBlockedMessage }}</p>
+                                            @else
+                                                <p class="mt-1 text-xs text-slate-500">Ready for the next question.</p>
+                                            @endif
+                                        </div>
+                                        <span class="rounded-full px-2.5 py-1 text-xs font-semibold {{ $chatBlocked ? 'bg-amber-100 text-amber-800' : 'bg-emerald-50 text-emerald-700' }}">
+                                            {{ $chatBlocked ? 'Waiting' : 'Available' }}
+                                        </span>
+                                    </div>
+
+                                    <div class="mt-3 grid gap-2">
+                                        @foreach ([$geminiQuota['chat'] ?? null, $geminiQuota['embedding'] ?? null] as $quota)
+                                            @if (($quota['limited'] ?? false) === true)
+                                                @php
+                                                    $minuteRequests = $quota['minute']['requests'];
+                                                    $minuteTokens = $quota['minute']['tokens'];
+                                                    $dayRequests = $quota['day']['requests'];
+                                                @endphp
+                                                <div class="rounded-lg border border-slate-200 bg-white p-3">
+                                                    <div class="flex flex-wrap items-center justify-between gap-2">
+                                                        <p class="text-xs font-semibold text-slate-800">{{ $quota['label'] }}</p>
+                                                        <p class="text-xs text-slate-500">{{ $quota['model'] }}</p>
+                                                    </div>
+                                                    <dl class="mt-2 grid grid-cols-3 gap-2 text-xs">
+                                                        <div>
+                                                            <dt class="text-slate-500">RPM left</dt>
+                                                            <dd class="mt-1 font-semibold text-slate-900">{{ number_format($minuteRequests['remaining']) }} / {{ number_format($minuteRequests['limit']) }}</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt class="text-slate-500">TPM left</dt>
+                                                            <dd class="mt-1 font-semibold text-slate-900">{{ number_format($minuteTokens['remaining']) }} / {{ number_format($minuteTokens['limit']) }}</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt class="text-slate-500">RPD left</dt>
+                                                            <dd class="mt-1 font-semibold text-slate-900">{{ number_format($dayRequests['remaining']) }} / {{ number_format($dayRequests['limit']) }}</dd>
+                                                        </div>
+                                                    </dl>
+                                                    <p class="mt-2 text-xs text-slate-500">Minute resets {{ $quota['minute']['resets_at']->diffForHumans() }}. Daily resets {{ $quota['day']['resets_at']->diffForHumans() }}.</p>
+                                                </div>
+                                            @endif
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
+
                         </div>
                     </div>
                 </div>
@@ -244,7 +297,7 @@
                 <div class="sticky bottom-0 z-10 min-w-0 border-t border-slate-200 bg-white p-4">
                     <div class="mb-3 flex max-w-full gap-2 overflow-x-auto overscroll-x-contain pb-1">
                         @foreach ($suggestions as $suggestion)
-                            <button type="button" data-suggested-prompt="{{ $suggestion }}" class="whitespace-nowrap rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                            <button type="button" data-suggested-prompt="{{ $suggestion }}" @disabled($chatBlocked) class="whitespace-nowrap rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
                                 {{ $suggestion }}
                             </button>
                         @endforeach
@@ -252,11 +305,14 @@
 
                     <form id="chatMessageForm" method="POST" action="{{ route('chat.messages.store', $conversation) }}" class="flex min-w-0 flex-col gap-3 sm:flex-row">
                         @csrf
-                        <input id="messageInput" name="content" type="text" value="{{ old('content') }}" maxlength="4000" required placeholder="Ask a question about the selected documents" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-3 text-sm outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-100">
-                        <button id="sendMessageButton" type="submit" class="rounded-lg bg-teal-600 px-5 py-3 text-sm font-semibold text-white shadow-sm shadow-teal-200 hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-teal-400">
+                        <input id="messageInput" name="content" type="text" value="{{ old('content') }}" maxlength="4000" required placeholder="{{ $chatBlocked ? 'Gemini limit reached. Try again after reset.' : 'Ask a question about the selected documents' }}" @disabled($chatBlocked) class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-3 text-sm outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400">
+                        <button id="sendMessageButton" type="submit" @disabled($chatBlocked) class="rounded-lg bg-teal-600 px-5 py-3 text-sm font-semibold text-white shadow-sm shadow-teal-200 hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-teal-400">
                             <span data-send-label>Send</span>
                         </button>
                     </form>
+                    @if ($chatBlocked)
+                        <p class="mt-2 text-sm font-medium text-amber-700">{{ $chatBlockedMessage }}</p>
+                    @endif
                     @error('content')
                         <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
                     @enderror
@@ -264,7 +320,7 @@
             @else
                 <div class="grid flex-1 place-items-center p-8 text-center">
                     <div class="max-w-md">
-                        <div class="mx-auto grid size-12 place-items-center rounded-lg bg-teal-50 text-sm font-bold text-teal-700 ring-1 ring-teal-100">C</div>
+                        <div class="mx-auto grid size-12 place-items-center rounded-lg bg-teal-50 text-sm font-bold text-teal-700 ring-1 ring-teal-100">?</div>
                         <h2 class="mt-5 text-xl font-semibold tracking-tight text-slate-950">Create a conversation</h2>
                         <p class="mt-2 text-sm leading-6 text-slate-500">Choose one document, several ready documents, or all ready documents before asking questions.</p>
                         <button type="button" data-open-conversation-modal class="mt-5 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-teal-200 hover:bg-teal-700">

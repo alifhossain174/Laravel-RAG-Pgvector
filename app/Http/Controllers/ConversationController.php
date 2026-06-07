@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Conversation;
 use App\Models\Document;
+use App\Services\GeminiRateLimitService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -116,6 +117,7 @@ class ConversationController extends Controller
             'scopedDocuments' => $scopedDocuments,
             'search' => $search,
             'openCreateConversationModal' => $openCreateConversationModal,
+            'geminiQuota' => app(GeminiRateLimitService::class)->chatSnapshot(),
         ]);
     }
 }

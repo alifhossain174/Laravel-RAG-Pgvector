@@ -9,6 +9,11 @@ use Throwable;
 
 class EmbeddingService
 {
+    public function __construct(
+        private readonly GeminiRateLimitService $rateLimits,
+    ) {
+    }
+
     public function embedText(string $text): array
     {
         return $this->embed($text);
@@ -53,6 +58,11 @@ class EmbeddingService
         }
 
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$this->model()}:embedContent";
+        $this->rateLimits->consumeOrFail(
+            model: $this->model(),
+            tokens: $this->rateLimits->estimateTextTokens($text),
+            label: 'Gemini Embedding'
+        );
 
         try {
             $response = Http::withHeaders([

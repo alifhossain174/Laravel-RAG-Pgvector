@@ -55,6 +55,22 @@ return [
         'embedding_model' => env('GEMINI_EMBEDDING_MODEL', 'gemini-embedding-2'),
         'embedding_dimensions' => env('EMBEDDING_DIMENSIONS', 1536),
         'chat_model' => env('GEMINI_CHAT_MODEL', 'gemini-2.5-flash'),
+        'rate_limits' => [
+            'enabled' => env('GEMINI_RATE_LIMITS_ENABLED', true),
+            'project_key' => env('GEMINI_RATE_LIMIT_PROJECT', env('APP_NAME', 'laravel')),
+            'models' => [
+                'gemini-2.5-flash' => [
+                    'rpm' => env('GEMINI_2_5_FLASH_RPM', 5),
+                    'tpm' => env('GEMINI_2_5_FLASH_TPM', 250000),
+                    'rpd' => env('GEMINI_2_5_FLASH_RPD', 20),
+                ],
+                'gemini-embedding-2' => [
+                    'rpm' => env('GEMINI_EMBEDDING_2_RPM', 100),
+                    'tpm' => env('GEMINI_EMBEDDING_2_TPM', 30000),
+                    'rpd' => env('GEMINI_EMBEDDING_2_RPD', 1000),
+                ],
+            ],
+        ],
     ],
 
     'rag' => [
