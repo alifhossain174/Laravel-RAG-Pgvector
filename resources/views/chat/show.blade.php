@@ -53,13 +53,13 @@
                             default => 'No documents',
                         };
                     @endphp
-                    <article class="rounded-lg border p-4 transition {{ $active ? 'border-teal-200 bg-teal-50/70' : 'border-slate-200 bg-white hover:border-teal-200 hover:bg-teal-50/40' }}">
+                    <article class="rounded-lg border p-4 transition {{ $active ? 'border-teal-200 bg-teal-50/70' : 'border-slate-200 bg-white hover:border-teal-200 hover:bg-teal-50/40' }}" @if ($active) data-active-conversation-card @endif>
                         <div class="flex items-start gap-3">
                             <a href="{{ route('chat.show', $item) }}" class="min-w-0 flex-1">
                                 <div class="flex items-start justify-between gap-3">
                                     <div class="min-w-0">
-                                        <p class="truncate text-sm font-semibold text-slate-950">{{ $item->title }}</p>
-                                        <p class="mt-1 text-sm leading-5 text-slate-500">{{ $item->messages_count }} message{{ $item->messages_count === 1 ? '' : 's' }}</p>
+                                        <p class="truncate text-sm font-semibold text-slate-950" @if ($active) data-active-conversation-title @endif>{{ $item->title }}</p>
+                                        <p class="mt-1 text-sm leading-5 text-slate-500" @if ($active) data-active-conversation-message-count @endif>{{ $item->messages_count }} message{{ $item->messages_count === 1 ? '' : 's' }}</p>
                                     </div>
                                     @if ($active)
                                         <span class="mt-1 size-2 shrink-0 rounded-full bg-teal-600"></span>
@@ -67,7 +67,7 @@
                                 </div>
                                 <div class="mt-3 flex flex-wrap items-center gap-2 text-xs font-medium">
                                     <span class="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">{{ $itemScopeLabel }}</span>
-                                    <span class="text-slate-400">{{ $item->updated_at->diffForHumans() }}</span>
+                                    <span class="text-slate-400" @if ($active) data-active-conversation-updated @endif>{{ $item->updated_at->diffForHumans() }}</span>
                                 </div>
                             </a>
 
@@ -106,11 +106,11 @@
                     <div class="flex flex-col justify-between gap-4 xl:flex-row xl:items-start">
                         <div class="min-w-0">
                             <p class="text-xs font-semibold uppercase tracking-wide text-teal-700">DocuMind Chat</p>
-                            <h2 class="mt-1 break-words text-xl font-semibold tracking-tight text-slate-950">{{ $conversation->title }}</h2>
+                            <h2 data-conversation-heading class="mt-1 break-words text-xl font-semibold tracking-tight text-slate-950">{{ $conversation->title }}</h2>
                             <div class="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold">
                                 <span class="rounded-full bg-teal-50 px-2.5 py-1 text-teal-700 ring-1 ring-teal-100">{{ $scopeBadgeLabel }}</span>
                                 <span class="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">{{ $scopeSummary }}</span>
-                                <span class="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">Updated {{ $conversation->updated_at->diffForHumans() }}</span>
+                                <span data-conversation-updated class="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">Updated {{ $conversation->updated_at->diffForHumans() }}</span>
                             </div>
                         </div>
 
@@ -148,122 +148,15 @@
                                 </div>
                             </details>
 
-                            @if ($geminiQuota['enabled'] ?? false)
-                                <div class="rounded-lg border {{ $chatBlocked ? 'border-amber-200 bg-amber-50' : 'border-slate-200 bg-white' }} p-3">
-                                    <div class="flex items-start justify-between gap-3">
-                                        <div>
-                                            <p class="text-sm font-semibold text-slate-900">Gemini free limits</p>
-                                            @if ($chatBlocked)
-                                                <p class="mt-1 text-xs font-medium leading-5 text-amber-800">{{ $chatBlockedMessage }}</p>
-                                            @else
-                                                <p class="mt-1 text-xs text-slate-500">Ready for the next question.</p>
-                                            @endif
-                                        </div>
-                                        <span class="rounded-full px-2.5 py-1 text-xs font-semibold {{ $chatBlocked ? 'bg-amber-100 text-amber-800' : 'bg-emerald-50 text-emerald-700' }}">
-                                            {{ $chatBlocked ? 'Waiting' : 'Available' }}
-                                        </span>
-                                    </div>
-
-                                    <div class="mt-3 grid gap-2">
-                                        @foreach ([$geminiQuota['chat'] ?? null, $geminiQuota['embedding'] ?? null] as $quota)
-                                            @if (($quota['limited'] ?? false) === true)
-                                                @php
-                                                    $minuteRequests = $quota['minute']['requests'];
-                                                    $minuteTokens = $quota['minute']['tokens'];
-                                                    $dayRequests = $quota['day']['requests'];
-                                                @endphp
-                                                <div class="rounded-lg border border-slate-200 bg-white p-3">
-                                                    <div class="flex flex-wrap items-center justify-between gap-2">
-                                                        <p class="text-xs font-semibold text-slate-800">{{ $quota['label'] }}</p>
-                                                        <p class="text-xs text-slate-500">{{ $quota['model'] }}</p>
-                                                    </div>
-                                                    <dl class="mt-2 grid grid-cols-3 gap-2 text-xs">
-                                                        <div>
-                                                            <dt class="text-slate-500">RPM left</dt>
-                                                            <dd class="mt-1 font-semibold text-slate-900">{{ number_format($minuteRequests['remaining']) }} / {{ number_format($minuteRequests['limit']) }}</dd>
-                                                        </div>
-                                                        <div>
-                                                            <dt class="text-slate-500">TPM left</dt>
-                                                            <dd class="mt-1 font-semibold text-slate-900">{{ number_format($minuteTokens['remaining']) }} / {{ number_format($minuteTokens['limit']) }}</dd>
-                                                        </div>
-                                                        <div>
-                                                            <dt class="text-slate-500">RPD left</dt>
-                                                            <dd class="mt-1 font-semibold text-slate-900">{{ number_format($dayRequests['remaining']) }} / {{ number_format($dayRequests['limit']) }}</dd>
-                                                        </div>
-                                                    </dl>
-                                                    <p class="mt-2 text-xs text-slate-500">Minute resets {{ $quota['minute']['resets_at']->diffForHumans() }}. Daily resets {{ $quota['day']['resets_at']->diffForHumans() }}.</p>
-                                                </div>
-                                            @endif
-                                        @endforeach
-                                    </div>
-                                </div>
-                            @endif
-
                         </div>
                     </div>
                 </div>
 
                 <div id="messageThread" class="min-w-0 flex-1 space-y-6 overflow-y-auto overscroll-contain bg-slate-50/60 p-5">
                     @forelse ($conversation->messages as $message)
-                        @if ($message->role === \App\Models\Message::ROLE_USER)
-                            <article class="flex justify-end">
-                                <div class="max-w-2xl">
-                                    <p class="mb-1 text-right text-xs font-semibold text-slate-500">You</p>
-                                    <div class="rounded-lg bg-teal-600 px-4 py-3 text-sm leading-6 text-white shadow-sm shadow-teal-200">
-                                        {{ $message->content }}
-                                    </div>
-                                </div>
-                            </article>
-                        @else
-                            <article class="max-w-3xl">
-                                <p class="mb-1 text-xs font-semibold text-slate-500">Assistant</p>
-                                <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-700 shadow-sm">
-                                    @include('partials.markdown-message', ['content' => $message->content])
-                                </div>
-                                @if (($message->metadata['truncated'] ?? false) === true)
-                                    <div class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium leading-5 text-amber-800">
-                                        This answer reached the model output limit and may be incomplete. Ask a more focused follow-up for the remaining details.
-                                    </div>
-                                @endif
-                                @php
-                                    $sources = $message->metadata['sources'] ?? [];
-                                @endphp
-                                @if (($message->metadata['error'] ?? false) === true)
-                                    <p class="mt-2 text-xs font-medium text-rose-700">Generation failed safely. Try again when the provider is available.</p>
-                                @elseif ($sources !== [])
-                                    <details class="mt-3 rounded-lg border border-teal-100 bg-teal-50/40 p-3" {{ count($sources) <= 2 ? 'open' : '' }}>
-                                        <summary class="cursor-pointer text-sm font-semibold text-teal-800">
-                                            Sources used ({{ count($sources) }})
-                                        </summary>
-                                        <div class="mt-3 grid gap-3 md:grid-cols-2">
-                                            @foreach ($sources as $source)
-                                                @php
-                                                    $pageStart = $source['page_start'] ?? null;
-                                                    $pageEnd = $source['page_end'] ?? null;
-                                                    $pageLabel = 'Page unknown';
-
-                                                    if ($pageStart && $pageEnd && (int) $pageStart === (int) $pageEnd) {
-                                                        $pageLabel = 'Page '.$pageStart;
-                                                    } elseif ($pageStart && $pageEnd) {
-                                                        $pageLabel = 'Pages '.$pageStart.'-'.$pageEnd;
-                                                    } elseif ($pageStart) {
-                                                        $pageLabel = 'Page '.$pageStart;
-                                                    }
-                                                @endphp
-                                                @include('partials.citation-card', [
-                                                    'documentTitle' => $source['document_title'] ?? 'Document source',
-                                                    'pageLabel' => $pageLabel,
-                                                    'chunkPreview' => $source['preview'] ?? 'Source preview unavailable.',
-                                                    'relevanceScore' => isset($source['score']) ? number_format((float) $source['score'], 3) : 'Pending',
-                                                ])
-                                            @endforeach
-                                        </div>
-                                    </details>
-                                @endif
-                            </article>
-                        @endif
+                        @include('partials.chat-message', ['message' => $message])
                     @empty
-                        <div class="grid min-h-80 place-items-center rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
+                        <div data-empty-chat-state class="grid min-h-80 place-items-center rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
                             <div>
                                 <p class="font-semibold text-slate-950">No messages yet</p>
                                 <p class="mt-2 text-sm leading-6 text-slate-500">Ask the first question to start this conversation.</p>
@@ -281,7 +174,7 @@
                     </template>
 
                     @if ($conversation->messages->where('role', \App\Models\Message::ROLE_ASSISTANT)->isEmpty())
-                        <div class="max-w-4xl">
+                        <div data-empty-sources-state class="max-w-4xl">
                             <div class="mb-3 flex items-center justify-between gap-3">
                                 <p class="text-sm font-semibold text-slate-950">Sources and citations</p>
                                 <span class="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-500 ring-1 ring-slate-200">Waiting for answer</span>
@@ -311,10 +204,14 @@
                         </button>
                     </form>
                     @if ($chatBlocked)
-                        <p class="mt-2 text-sm font-medium text-amber-700">{{ $chatBlockedMessage }}</p>
+                        <p id="chatFormStatus" class="mt-2 text-sm font-medium text-amber-700">{{ $chatBlockedMessage }}</p>
+                    @else
+                        <p id="chatFormStatus" class="mt-2 hidden text-sm font-medium"></p>
                     @endif
                     @error('content')
-                        <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
+                        <p id="chatFormError" class="mt-2 text-sm text-rose-600">{{ $message }}</p>
+                    @else
+                        <p id="chatFormError" class="mt-2 hidden text-sm text-rose-600"></p>
                     @enderror
                 </div>
             @else
@@ -443,12 +340,129 @@
             const messageThread = document.getElementById('messageThread');
             const loadingTemplate = document.getElementById('assistantLoadingTemplate');
             const promptButtons = document.querySelectorAll('[data-suggested-prompt]');
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+            const quotaCard = document.getElementById('geminiQuotaCard');
+            const formError = document.getElementById('chatFormError');
+            const formStatus = document.getElementById('chatFormStatus');
+            const conversationHeading = document.querySelector('[data-conversation-heading]');
+            const conversationUpdated = document.querySelector('[data-conversation-updated]');
+            const activeConversationTitle = document.querySelector('[data-active-conversation-title]');
+            const activeConversationMessageCount = document.querySelector('[data-active-conversation-message-count]');
+            const activeConversationUpdated = document.querySelector('[data-active-conversation-updated]');
 
             const scrollToBottom = () => {
                 if (messageThread) {
                     requestAnimationFrame(() => {
                         messageThread.scrollTop = messageThread.scrollHeight;
                     });
+                }
+            };
+
+            const escapeHtml = (value) => value
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+
+            const userMessageHtml = (content) => `
+                <article class="flex justify-end">
+                    <div class="max-w-2xl">
+                        <p class="mb-1 text-right text-xs font-semibold text-slate-500">You</p>
+                        <div class="rounded-lg bg-teal-600 px-4 py-3 text-sm leading-6 text-white shadow-sm shadow-teal-200">
+                            ${escapeHtml(content)}
+                        </div>
+                    </div>
+                </article>
+            `;
+
+            const appendHtml = (html) => {
+                const template = document.createElement('template');
+                template.innerHTML = html.trim();
+                const node = template.content.firstElementChild;
+
+                if (node && messageThread) {
+                    messageThread.appendChild(node);
+                }
+
+                return node;
+            };
+
+            const clearFormMessages = () => {
+                if (formError) {
+                    formError.textContent = '';
+                    formError.classList.add('hidden');
+                }
+            };
+
+            const showFormError = (message) => {
+                if (formError) {
+                    formError.textContent = message;
+                    formError.classList.remove('hidden');
+                }
+            };
+
+            const setSubmitting = (submitting) => {
+                if (sendButton) {
+                    sendButton.disabled = submitting;
+                }
+
+                if (sendLabel) {
+                    sendLabel.textContent = submitting ? 'Sending...' : 'Send';
+                }
+
+                promptButtons.forEach((button) => {
+                    button.disabled = submitting;
+                });
+            };
+
+            const setChatAvailability = (quota) => {
+                const blocked = Boolean(quota?.enabled && !quota?.can_ask);
+                const message = quota?.blocked_message || 'Gemini free-tier limit reached. Try again later.';
+
+                if (messageInput) {
+                    messageInput.disabled = blocked;
+                    messageInput.placeholder = blocked ? 'Gemini limit reached. Try again after reset.' : 'Ask a question about the selected documents';
+                }
+
+                if (sendButton) {
+                    sendButton.disabled = blocked;
+                }
+
+                promptButtons.forEach((button) => {
+                    button.disabled = blocked;
+                });
+
+                if (formStatus) {
+                    formStatus.textContent = blocked ? message : '';
+                    formStatus.classList.toggle('hidden', !blocked);
+                    formStatus.classList.toggle('text-amber-700', blocked);
+                }
+            };
+
+            const updateConversationMeta = (conversation) => {
+                if (!conversation) {
+                    return;
+                }
+
+                if (conversationHeading) {
+                    conversationHeading.textContent = conversation.title;
+                }
+
+                if (conversationUpdated) {
+                    conversationUpdated.textContent = `Updated ${conversation.updated_label}`;
+                }
+
+                if (activeConversationTitle) {
+                    activeConversationTitle.textContent = conversation.title;
+                }
+
+                if (activeConversationMessageCount) {
+                    activeConversationMessageCount.textContent = conversation.messages_label;
+                }
+
+                if (activeConversationUpdated) {
+                    activeConversationUpdated.textContent = conversation.updated_label;
                 }
             };
 
@@ -492,17 +506,79 @@
                 });
             });
 
-            messageForm?.addEventListener('submit', () => {
-                if (sendButton) {
-                    sendButton.disabled = true;
+            messageForm?.addEventListener('submit', async (event) => {
+                event.preventDefault();
+
+                if (!messageInput || !messageThread || !loadingTemplate) {
+                    messageForm.submit();
+                    return;
                 }
 
-                if (sendLabel) {
-                    sendLabel.textContent = 'Sending...';
+                const content = messageInput.value.trim();
+
+                if (content === '') {
+                    return;
                 }
 
-                if (messageThread && loadingTemplate) {
-                    messageThread.appendChild(loadingTemplate.content.cloneNode(true));
+                clearFormMessages();
+                setSubmitting(true);
+                const formData = new FormData(messageForm);
+
+                document.querySelector('[data-empty-chat-state]')?.remove();
+                document.querySelector('[data-empty-sources-state]')?.remove();
+
+                const userNode = appendHtml(userMessageHtml(content));
+                messageInput.value = '';
+
+                const loadingNode = loadingTemplate.content.firstElementChild.cloneNode(true);
+                messageThread.appendChild(loadingNode);
+                scrollToBottom();
+
+                try {
+                    const response = await fetch(messageForm.action, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            ...(csrfToken ? {'X-CSRF-TOKEN': csrfToken} : {}),
+                        },
+                        body: formData,
+                    });
+
+                    const payload = await response.json();
+
+                    if (!response.ok) {
+                        const message = payload?.message || payload?.errors?.content?.[0] || 'Message could not be sent. Please try again.';
+                        throw new Error(message);
+                    }
+
+                    if (payload.assistant_html) {
+                        const template = document.createElement('template');
+                        template.innerHTML = payload.assistant_html.trim();
+                        loadingNode.replaceWith(template.content);
+                    } else {
+                        loadingNode.remove();
+                    }
+
+                    if (quotaCard && Object.prototype.hasOwnProperty.call(payload, 'quota_html')) {
+                        quotaCard.innerHTML = payload.quota_html;
+                    }
+
+                    updateConversationMeta(payload.conversation);
+                    setChatAvailability(payload.quota);
+                } catch (error) {
+                    userNode?.remove();
+                    loadingNode.remove();
+                    messageInput.value = content;
+                    showFormError(error.message || 'Message could not be sent. Please try again.');
+                } finally {
+                    if (!messageInput.disabled) {
+                        setSubmitting(false);
+                        messageInput.focus();
+                    } else if (sendLabel) {
+                        sendLabel.textContent = 'Send';
+                    }
+
                     scrollToBottom();
                 }
             });

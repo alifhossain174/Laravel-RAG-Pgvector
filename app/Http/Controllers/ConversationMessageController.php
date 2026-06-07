@@ -8,6 +8,7 @@ use App\Models\Message;
 use App\Services\GeminiRateLimitService;
 use App\Services\LlmService;
 use App\Services\RagRetrievalService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,7 +25,7 @@ class ConversationMessageController extends Controller
         RagRetrievalService $retrieval,
         LlmService $llm,
         GeminiRateLimitService $rateLimits,
-    ): RedirectResponse
+    ): RedirectResponse|JsonResponse
     {
         $this->authorize('view', $conversation);
 
@@ -55,11 +56,13 @@ class ConversationMessageController extends Controller
             ]);
         });
 
+        $assistantMessage = null;
+
         try {
             $chunks = $retrieval->retrieve($conversation, $validated['content']);
 
             if ($chunks === []) {
-                $this->storeAssistantMessage(
+                $assistantMessage = $this->storeAssistantMessage(
                     conversation: $conversation,
                     content: 'I could not find relevant information in the selected documents.',
                     metadata: [
@@ -67,42 +70,42 @@ class ConversationMessageController extends Controller
                     ]
                 );
 
-                return redirect()
-                    ->route('chat.show', $conversation)
-                    ->with('success', 'Message sent successfully.');
+                if ($request->expectsJson()) {
+                    return $this->jsonMessageResponse($conversation, $assistantMessage, $rateLimits);
+                }
+            } else {
+                $history = $conversation
+                    ->messages()
+                    ->reorder()
+                    ->latest()
+                    ->limit(8)
+                    ->get()
+                    ->reverse()
+                    ->map(fn (Message $message): array => [
+                        'role' => $message->role,
+                        'content' => $message->content,
+                    ])
+                    ->values()
+                    ->all();
+
+                $result = $llm->answerWithContext($validated['content'], $chunks, $history);
+
+                $assistantMessage = $this->storeAssistantMessage(
+                    conversation: $conversation,
+                    content: $result['answer'],
+                    metadata: [
+                        'provider' => $result['provider'],
+                        'model' => $result['model'],
+                        'finish_reason' => data_get($result, 'raw.finishReason'),
+                        'continuation_finish_reason' => data_get($result, 'raw.continuationFinishReason'),
+                        'continuation_used' => (bool) data_get($result, 'raw.continuationUsed', false),
+                        'truncated' => (bool) data_get($result, 'raw.truncated', false),
+                        'sources' => $this->formatSources($chunks),
+                    ]
+                );
             }
-
-            $history = $conversation
-                ->messages()
-                ->reorder()
-                ->latest()
-                ->limit(8)
-                ->get()
-                ->reverse()
-                ->map(fn (Message $message): array => [
-                    'role' => $message->role,
-                    'content' => $message->content,
-                ])
-                ->values()
-                ->all();
-
-            $result = $llm->answerWithContext($validated['content'], $chunks, $history);
-
-            $this->storeAssistantMessage(
-                conversation: $conversation,
-                content: $result['answer'],
-                metadata: [
-                    'provider' => $result['provider'],
-                    'model' => $result['model'],
-                    'finish_reason' => data_get($result, 'raw.finishReason'),
-                    'continuation_finish_reason' => data_get($result, 'raw.continuationFinishReason'),
-                    'continuation_used' => (bool) data_get($result, 'raw.continuationUsed', false),
-                    'truncated' => (bool) data_get($result, 'raw.truncated', false),
-                    'sources' => $this->formatSources($chunks),
-                ]
-            );
         } catch (GeminiRateLimitExceededException $exception) {
-            $this->storeAssistantMessage(
+            $assistantMessage = $this->storeAssistantMessage(
                 conversation: $conversation,
                 content: $exception->getMessage(),
                 metadata: [
@@ -120,7 +123,7 @@ class ConversationMessageController extends Controller
                 'status_code' => $exception->getCode(),
             ]);
 
-            $this->storeAssistantMessage(
+            $assistantMessage = $this->storeAssistantMessage(
                 conversation: $conversation,
                 content: 'Sorry, I could not generate an answer right now. Please try again.',
                 metadata: [
@@ -130,22 +133,58 @@ class ConversationMessageController extends Controller
             );
         }
 
+        if ($request->expectsJson() && $assistantMessage) {
+            return $this->jsonMessageResponse($conversation, $assistantMessage, $rateLimits);
+        }
+
         return redirect()
             ->route('chat.show', $conversation)
             ->with('success', 'Message sent successfully.');
     }
 
-    private function storeAssistantMessage(Conversation $conversation, string $content, array $metadata): void
+    private function storeAssistantMessage(Conversation $conversation, string $content, array $metadata): Message
     {
-        DB::transaction(function () use ($conversation, $content, $metadata): void {
-            $conversation->messages()->create([
+        return DB::transaction(function () use ($conversation, $content, $metadata): Message {
+            $message = $conversation->messages()->create([
                 'role' => Message::ROLE_ASSISTANT,
                 'content' => $content,
                 'metadata' => $metadata,
             ]);
 
             $conversation->touch();
+
+            return $message;
         });
+    }
+
+    private function jsonMessageResponse(
+        Conversation $conversation,
+        Message $assistantMessage,
+        GeminiRateLimitService $rateLimits
+    ): JsonResponse {
+        $conversation->refresh();
+
+        $quota = $rateLimits->chatSnapshot();
+
+        return response()->json([
+            'assistant_html' => view('partials.chat-message', [
+                'message' => $assistantMessage,
+            ])->render(),
+            'quota_html' => view('partials.gemini-quota-card', [
+                'geminiQuota' => $quota,
+            ])->render(),
+            'quota' => [
+                'enabled' => $quota['enabled'] ?? false,
+                'can_ask' => $quota['can_ask'] ?? true,
+                'blocked_message' => $quota['blocked_message'] ?? null,
+            ],
+            'conversation' => [
+                'title' => $conversation->title,
+                'messages_count' => $conversation->messages()->count(),
+                'messages_label' => $conversation->messages()->count().' message'.($conversation->messages()->count() === 1 ? '' : 's'),
+                'updated_label' => $conversation->updated_at->diffForHumans(),
+            ],
+        ]);
     }
 
     private function formatSources(array $chunks): array
