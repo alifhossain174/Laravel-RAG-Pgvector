@@ -9,7 +9,7 @@ class TestEmbeddingCommand extends Command
 {
     protected $signature = 'embeddings:test {text}';
 
-    protected $description = 'Generate a test embedding for sample text.';
+    protected $description = 'Generate an embedding for the provided text.';
 
     public function handle(EmbeddingService $embeddings): int
     {

@@ -1,8 +1,8 @@
 @php
     $documentTitle = $documentTitle ?? 'Document source';
-    $pageLabel = $pageLabel ?? 'Page pending';
-    $chunkPreview = $chunkPreview ?? 'Matching chunk preview will appear after retrieval is connected.';
-    $relevanceScore = $relevanceScore ?? 'Pending';
+    $pageLabel = $pageLabel ?? 'Page unknown';
+    $chunkPreview = $chunkPreview ?? 'Source excerpt unavailable.';
+    $relevanceScore = $relevanceScore ?? 'N/A';
     $showScore = $showScore ?? true;
 @endphp
 

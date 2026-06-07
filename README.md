@@ -1,28 +1,342 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# RAG Docs - Laravel PDF Document Assistant
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+RAG Docs is a full-stack Laravel application for uploading PDFs, processing them into searchable chunks, storing vector embeddings with PostgreSQL pgvector, and answering document-scoped questions with source citations.
 
-## RAG Document Assistant
+The project is built as a practical Retrieval-Augmented Generation application: users verify their email, upload private PDFs, wait for background processing, create conversations around one or more documents, and ask questions that are answered only from the selected document context.
 
-This app lets verified users upload PDFs, process them into chunks, generate embeddings, create conversations, and ask document-scoped questions.
+## Project Highlights
 
-### RAG flow
+- Authentication, registration, email verification, password reset, and profile management
+- Private PDF upload flow with per-user document ownership
+- Background PDF processing with queued jobs
+- Poppler/pdftotext-based text extraction
+- Page-aware document chunking with `page_start` and `page_end`
+- Gemini embedding generation for document chunks
+- PostgreSQL pgvector storage and similarity retrieval
+- Conversation-centric chat workflow
+- Single-document, multi-document, and all-document conversation scopes
+- Gemini answer generation using retrieved context
+- Citation metadata stored with assistant messages
+- Clean Blade + Tailwind CSS SaaS interface
+- Feature and unit test coverage for the core flows
 
-1. A PDF is uploaded into private storage.
-2. The queue extracts text with Poppler/pdftotext.
-3. Text is chunked with page ranges.
-4. Gemini embeddings are stored in PostgreSQL pgvector.
-5. A chat question is embedded.
-6. pgvector retrieves the most relevant chunks inside the conversation scope.
-7. Gemini answers using only the retrieved context.
-8. Assistant messages store citation metadata in `messages.metadata`.
+## Tech Stack
 
-### Environment variables
+**Backend**
+
+- PHP 8.2+
+- Laravel 12.x
+- Laravel Breeze authentication
+- Laravel Queues
+- Laravel Notifications for email verification and password resets
+- PostgreSQL
+- pgvector
+- Spatie PDF To Text
+- Poppler / `pdftotext`
+
+**AI and Retrieval**
+
+- Google Gemini Embedding API
+- Google Gemini Generate Content API
+- Vector similarity search using pgvector cosine distance
+- Character-based chunking with page range tracking
+
+**Frontend**
+
+- Blade templates
+- Tailwind CSS v4
+- Vite
+- Minimal JavaScript for chat UX, modal handling, loading states, and prompt actions
+
+**Testing**
+
+- PHPUnit
+- Laravel feature tests
+- Laravel unit tests
+- Mocked AI service tests for deterministic test runs
+
+## Core User Flow
+
+1. A user registers and verifies their email.
+2. The user uploads a PDF from the document upload page.
+3. The PDF is stored in private Laravel storage.
+4. `ProcessDocumentJob` extracts text from the PDF using Poppler.
+5. Extracted text is cleaned and split into page-aware chunks.
+6. Chunks are saved to `document_chunks`.
+7. `GenerateDocumentEmbeddingsJob` generates Gemini embeddings for each chunk.
+8. Embeddings are stored in PostgreSQL using pgvector.
+9. The document becomes `ready`.
+10. The user creates a conversation scoped to selected documents or all ready documents.
+11. When the user asks a question, the app embeds the question.
+12. `RagRetrievalService` retrieves the most relevant chunks from the allowed document scope.
+13. `LlmService` asks Gemini to answer using only the retrieved context.
+14. The assistant response and citation metadata are saved to the conversation.
+
+## RAG Architecture
+
+```text
+PDF Upload
+   |
+   v
+Private Storage
+   |
+   v
+ProcessDocumentJob
+   |
+   +--> PdfExtractorService
+   |       - runs pdftotext
+   |       - cleans PDF artifacts
+   |       - splits text by page
+   |
+   +--> DocumentChunker
+           - creates overlapping chunks
+           - tracks page_start/page_end
+           - estimates token count
+   |
+   v
+document_chunks
+   |
+   v
+GenerateDocumentEmbeddingsJob
+   |
+   +--> EmbeddingService
+           - calls Gemini embedding API
+           - validates 1536 dimensions
+           - stores vector in pgvector format
+   |
+   v
+Ready Document
+   |
+   v
+Conversation Question
+   |
+   +--> RagRetrievalService
+   |       - embeds question
+   |       - searches scoped chunks with pgvector
+   |
+   +--> RagPromptBuilder
+   |       - builds grounded context prompt
+   |
+   +--> LlmService
+           - calls Gemini generateContent
+           - returns answer and metadata
+```
+
+## Main Data Model
+
+### Users
+
+Users own documents and conversations. Email verification is required before accessing protected application pages.
+
+### Documents
+
+Documents represent uploaded PDFs.
+
+Key fields:
+
+- `user_id`
+- `ulid`
+- `title`
+- `description`
+- `original_filename`
+- `file_path`
+- `mime_type`
+- `file_size`
+- `status`
+- `total_pages`
+- `total_chunks`
+- `processed_at`
+- `failed_reason`
+
+Supported statuses:
+
+- `uploaded`
+- `processing`
+- `text_extracted`
+- `chunked`
+- `embedded`
+- `ready`
+- `failed`
+
+### Document Chunks
+
+Chunks store searchable text segments and optional vector embeddings.
+
+Key fields:
+
+- `document_id`
+- `chunk_index`
+- `page_start`
+- `page_end`
+- `content`
+- `token_count`
+- `metadata`
+- `embedding`
+- `embedded_at`
+- `embedding_provider`
+- `embedding_model`
+
+### Conversations
+
+Conversations define which documents can be searched during chat.
+
+Supported scopes:
+
+- `selected` - search only attached ready documents
+- `all` - search all ready documents owned by the user
+
+### Messages
+
+Messages store user and assistant chat history. Assistant messages include citation metadata in `metadata.sources`.
+
+## Important Services
+
+- `PdfExtractorService` - extracts and cleans PDF text with page awareness.
+- `DocumentChunker` - creates overlapping chunks and maps them to source pages.
+- `EmbeddingService` - creates Gemini embeddings and validates vector dimensions.
+- `RagRetrievalService` - retrieves relevant chunks using pgvector.
+- `RagPromptBuilder` - builds concise grounded prompts from retrieved context.
+- `LlmService` - generates answers with Gemini using retrieved chunks.
+
+## Background Jobs
+
+- `ProcessDocumentJob` - extracts PDF text, chunks it, stores chunks, and updates document status.
+- `GenerateDocumentEmbeddingsJob` - generates embeddings for chunks and marks documents ready.
+
+The jobs are intentionally separated so PDF processing and API-based embedding generation remain isolated and easier to retry.
+
+## Artisan Commands
+
+```bash
+php artisan documents:process {document_id}
+php artisan documents:rechunk {document_id}
+php artisan documents:rechunk-all
+php artisan documents:embed {document_id}
+php artisan documents:embed {document_id} --force
+php artisan embeddings:test "Your sample text"
+php artisan rag:retrieve {conversation_ulid_or_id} "What are the key points?"
+php artisan rag:answer {conversation_ulid_or_id} "What actions are required?"
+```
+
+These commands are useful for local testing, debugging, and manually reprocessing documents.
+
+## Routes Overview
+
+Public routes:
+
+- `/`
+- `/login`
+- `/register`
+- `/forgot-password`
+- `/reset-password/*`
+
+Protected and email-verified routes:
+
+- `/dashboard`
+- `/documents`
+- `/documents/upload`
+- `/documents/{document}`
+- `/chat`
+- `/chat/{conversation}`
+- `/profile`
+
+Documents and conversations use ULIDs in routes so sequential database IDs are not exposed.
+
+## UI Overview
+
+The interface is designed as a focused SaaS dashboard:
+
+- Landing page for the product overview
+- Auth pages styled consistently with the application
+- Dashboard with document and question activity
+- Upload page for private PDF submission
+- Documents list with search, filtering, status badges, and pagination
+- Document details page with processing timeline and chunk previews
+- Conversation-centric chat page
+- Selected document panel and source citation cards
+- Responsive sidebar and mobile navigation
+
+## Security and Authorization
+
+- Authenticated and verified users are required for application routes.
+- PDFs are stored in private storage, not public storage.
+- Users can only view and delete their own documents.
+- Users can only access their own conversations.
+- Retrieval is scoped to the current conversation and current user.
+- API keys are read from environment variables and are not exposed in code or logs.
+- Password reset and verification emails use Laravel's notification system.
+
+## Requirements
+
+- PHP 8.2 or newer
+- Composer
+- Node.js and npm
+- PostgreSQL
+- pgvector extension enabled
+- Poppler installed with `pdftotext` available
+- Gemini API key
+- SMTP credentials for email verification and password reset emails
+
+## Installation
+
+Clone the repository and install dependencies:
+
+```bash
+composer install
+npm install
+```
+
+Create your environment file:
+
+```bash
+cp .env.example .env
+php artisan key:generate
+```
+
+Configure PostgreSQL in `.env`:
+
+```env
+DB_CONNECTION=pgsql
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_DATABASE=your_database
+DB_USERNAME=your_username
+DB_PASSWORD=your_password
+```
+
+Enable pgvector in PostgreSQL:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+
+Run migrations:
+
+```bash
+php artisan migrate
+```
+
+Build frontend assets:
+
+```bash
+npm run dev
+```
+
+Start the Laravel server:
+
+```bash
+php artisan serve
+```
+
+Start the queue worker in a separate terminal:
+
+```bash
+php artisan queue:work
+```
+
+## Environment Variables
+
+AI and RAG configuration:
 
 ```env
 PDFTOTEXT_PATH=
@@ -40,69 +354,114 @@ RAG_RETRIEVAL_MAX_DISTANCE=
 RAG_MESSAGE_RATE_LIMIT_PER_MINUTE=20
 ```
 
-### Testing RAG
+Mail configuration example:
+
+```env
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=your_email@example.com
+MAIL_PASSWORD=your_app_password
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=your_email@example.com
+MAIL_FROM_NAME="${APP_NAME}"
+```
+
+If `PDFTOTEXT_PATH` is empty, the app lets Spatie/Poppler resolve `pdftotext` from the system path.
+
+## Testing the Full Flow
+
+1. Register a user.
+2. Verify the email address.
+3. Start the queue worker:
 
 ```bash
 php artisan queue:work
-php artisan rag:retrieve {conversation_ulid_or_id} "What are the key points?"
-php artisan rag:answer {conversation_ulid_or_id} "What actions are required?"
+```
+
+4. Upload a text-based PDF.
+5. Wait until the document status becomes `Ready`.
+6. Open Document Chat.
+7. Create a conversation with one or more ready documents.
+8. Ask a question related to the selected document content.
+9. Confirm the assistant response includes source citation cards.
+
+## Testing Commands
+
+Run the automated test suite:
+
+```bash
 php artisan test
 ```
 
-### Known limitations
+Test embeddings without printing the full vector:
+
+```bash
+php artisan embeddings:test "Summarize the contract renewal terms."
+```
+
+Test retrieval without generating an answer:
+
+```bash
+php artisan rag:retrieve {conversation_ulid_or_id} "What are the important deadlines?"
+```
+
+Test retrieval and answer generation from the terminal:
+
+```bash
+php artisan rag:answer {conversation_ulid_or_id} "What actions are required?"
+```
+
+## How to Confirm Embeddings Are Stored
+
+Use a database client or `psql`:
+
+```sql
+SELECT
+    id,
+    document_id,
+    chunk_index,
+    embedded_at,
+    embedding_provider,
+    embedding_model,
+    embedding IS NOT NULL AS has_embedding
+FROM document_chunks
+ORDER BY id DESC
+LIMIT 10;
+```
+
+## Known Limitations
 
 - Text-based PDFs work best.
-- Scanned PDFs require OCR, which is not implemented yet.
-- Tables, charts, and graphs may not be fully understood.
-- Answers are limited by retrieved chunks and the selected conversation scope.
+- Scanned PDFs require OCR, which is not implemented.
+- Tables, charts, and graph-heavy PDFs may lose structure during text extraction.
+- Retrieval quality depends on extracted text quality and chunk boundaries.
+- Streaming responses are not implemented.
+- Multi-turn memory optimization is intentionally kept simple for the MVP.
 
-## About Laravel
+## Future Improvements
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- OCR support for scanned PDFs
+- Streaming chat responses
+- Organization/team workspaces
+- Conversation renaming and document scope editing
+- Advanced retrieval reranking
+- Better table-aware parsing
+- Usage analytics and admin dashboards
+- Deployment pipeline and CI workflow
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Why This Project Matters
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+This project demonstrates a complete modern Laravel AI workflow:
 
-## Learning Laravel
+- Secure user authentication
+- File upload and private storage
+- Queue-based backend processing
+- PostgreSQL relational modeling
+- pgvector-based semantic retrieval
+- External AI API integration
+- Clean Blade/Tailwind UI implementation
+- Authorization and ownership boundaries
+- Testable service-oriented architecture
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
-
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-## Laravel Sponsors
-
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
-
-### Premium Partners
-
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+It is designed as a practical showcase of how Laravel can be used to build production-style AI applications without relying on a JavaScript SPA framework.

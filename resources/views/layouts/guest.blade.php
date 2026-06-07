@@ -26,8 +26,8 @@
 
                     <div class="mt-8 rounded-lg border border-slate-200 bg-slate-50 p-4">
                         <div class="rounded-lg bg-white p-4 shadow-sm">
-                            <p class="text-sm font-semibold text-slate-950">Procurement Policy.pdf</p>
-                            <p class="mt-2 text-sm text-slate-600">Ready for secure document chat</p>
+                            <p class="text-sm font-semibold text-slate-950">Verified document workspace</p>
+                            <p class="mt-2 text-sm text-slate-600">Ready for source-backed document chat</p>
                             <div class="mt-4 h-2 rounded-full bg-slate-200">
                                 <div class="h-2 w-3/4 rounded-full bg-indigo-600"></div>
                             </div>

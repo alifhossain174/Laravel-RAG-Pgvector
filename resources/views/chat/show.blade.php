@@ -51,21 +51,35 @@
                             default => 'No documents',
                         };
                     @endphp
-                    <a href="{{ route('chat.show', $item) }}" class="block rounded-lg border p-4 transition {{ $active ? 'border-indigo-200 bg-indigo-50/70' : 'border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/40' }}">
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="min-w-0">
-                                <p class="truncate text-sm font-semibold text-slate-950">{{ $item->title }}</p>
-                                <p class="mt-1 text-sm leading-5 text-slate-500">{{ $item->messages_count }} message{{ $item->messages_count === 1 ? '' : 's' }}</p>
+                    <article class="rounded-lg border p-4 transition {{ $active ? 'border-indigo-200 bg-indigo-50/70' : 'border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/40' }}">
+                        <div class="flex items-start gap-3">
+                            <a href="{{ route('chat.show', $item) }}" class="min-w-0 flex-1">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0">
+                                        <p class="truncate text-sm font-semibold text-slate-950">{{ $item->title }}</p>
+                                        <p class="mt-1 text-sm leading-5 text-slate-500">{{ $item->messages_count }} message{{ $item->messages_count === 1 ? '' : 's' }}</p>
+                                    </div>
+                                    @if ($active)
+                                        <span class="mt-1 size-2 shrink-0 rounded-full bg-indigo-600"></span>
+                                    @endif
+                                </div>
+                                <div class="mt-3 flex flex-wrap items-center gap-2 text-xs font-medium">
+                                    <span class="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">{{ $itemScopeLabel }}</span>
+                                    <span class="text-slate-400">{{ $item->updated_at->diffForHumans() }}</span>
+                                </div>
+                            </a>
+
+                            <div class="shrink-0">
+                                <form method="POST" action="{{ route('chat.destroy', $item) }}" onsubmit="return confirm('Delete this conversation and all of its messages?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50">
+                                        Delete
+                                    </button>
+                                </form>
                             </div>
-                            @if ($active)
-                                <span class="mt-1 size-2 shrink-0 rounded-full bg-indigo-600"></span>
-                            @endif
                         </div>
-                        <div class="mt-3 flex flex-wrap items-center gap-2 text-xs font-medium">
-                            <span class="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">{{ $itemScopeLabel }}</span>
-                            <span class="text-slate-400">{{ $item->updated_at->diffForHumans() }}</span>
-                        </div>
-                    </a>
+                    </article>
                 @empty
                     <div class="rounded-lg border border-dashed border-slate-300 p-6 text-center">
                         <p class="font-semibold text-slate-950">No conversations yet</p>
@@ -98,38 +112,41 @@
                             </div>
                         </div>
 
-                        <details class="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-3 xl:w-[28rem] xl:max-w-full">
-                            <summary class="cursor-pointer list-none text-sm font-semibold text-slate-800">
-                                View selected documents
-                            </summary>
-                            <div class="mt-3 max-h-72 space-y-3 overflow-y-auto">
-                                @forelse ($scopedDocuments as $document)
-                                    <article class="rounded-lg border border-slate-200 bg-white p-3">
-                                        <div class="flex items-start justify-between gap-3">
-                                            <div class="min-w-0">
-                                                <p class="truncate text-sm font-semibold text-slate-950">{{ $document->displayTitle() }}</p>
-                                                <p class="mt-1 text-xs text-slate-500">Processed {{ $document->processed_at?->diffForHumans() ?? '-' }}</p>
+                        <div class="flex min-w-0 flex-col gap-3 xl:w-[28rem] xl:max-w-full">
+                            <details class="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                <summary class="cursor-pointer list-none text-sm font-semibold text-slate-800">
+                                    View selected documents
+                                </summary>
+                                <div class="mt-3 max-h-72 space-y-3 overflow-y-auto">
+                                    @forelse ($scopedDocuments as $document)
+                                        <article class="rounded-lg border border-slate-200 bg-white p-3">
+                                            <div class="flex items-start justify-between gap-3">
+                                                <div class="min-w-0">
+                                                    <p class="truncate text-sm font-semibold text-slate-950">{{ $document->displayTitle() }}</p>
+                                                    <p class="mt-1 text-xs text-slate-500">Processed {{ $document->processed_at?->diffForHumans() ?? '-' }}</p>
+                                                </div>
+                                                @include('partials.status-badge', ['status' => $document->status])
                                             </div>
-                                            @include('partials.status-badge', ['status' => $document->status])
+                                            <dl class="mt-3 grid grid-cols-2 gap-2 text-xs">
+                                                <div class="rounded-lg bg-slate-50 p-2">
+                                                    <dt class="text-slate-500">Pages</dt>
+                                                    <dd class="mt-1 font-semibold text-slate-900">{{ $document->total_pages ?? '-' }}</dd>
+                                                </div>
+                                                <div class="rounded-lg bg-slate-50 p-2">
+                                                    <dt class="text-slate-500">Chunks</dt>
+                                                    <dd class="mt-1 font-semibold text-slate-900">{{ $document->total_chunks }}</dd>
+                                                </div>
+                                            </dl>
+                                        </article>
+                                    @empty
+                                        <div class="rounded-lg border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
+                                            No ready documents are currently in this conversation scope.
                                         </div>
-                                        <dl class="mt-3 grid grid-cols-2 gap-2 text-xs">
-                                            <div class="rounded-lg bg-slate-50 p-2">
-                                                <dt class="text-slate-500">Pages</dt>
-                                                <dd class="mt-1 font-semibold text-slate-900">{{ $document->total_pages ?? '-' }}</dd>
-                                            </div>
-                                            <div class="rounded-lg bg-slate-50 p-2">
-                                                <dt class="text-slate-500">Chunks</dt>
-                                                <dd class="mt-1 font-semibold text-slate-900">{{ $document->total_chunks }}</dd>
-                                            </div>
-                                        </dl>
-                                    </article>
-                                @empty
-                                    <div class="rounded-lg border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
-                                        No ready documents are currently in this conversation scope.
-                                    </div>
-                                @endforelse
-                            </div>
-                        </details>
+                                    @endforelse
+                                </div>
+                            </details>
+
+                        </div>
                     </div>
                 </div>
 

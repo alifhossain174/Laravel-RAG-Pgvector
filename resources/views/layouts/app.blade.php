@@ -4,7 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="theme-color" content="#4f46e5">
     <title>{{ $title ?? config('app.name', 'RAG Docs') }}</title>
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+    <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-slate-50 font-sans text-slate-900 antialiased">
@@ -35,7 +38,7 @@
                 </header>
             @endisset
 
-            <main class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+            <main class="mx-auto w-full {{ $mainMaxWidth ?? 'max-w-screen-2xl' }} px-4 py-6 sm:px-6 lg:px-8">
                 @if (session('success'))
                     <div class="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
                         {{ session('success') }}

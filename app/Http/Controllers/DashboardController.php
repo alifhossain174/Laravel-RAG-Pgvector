@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Document;
+use App\Models\Message;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -24,11 +25,16 @@ class DashboardController extends Controller
             ])
             ->count();
         $recentDocuments = (clone $baseQuery)->latest()->limit(5)->get();
+        $totalQuestions = Message::query()
+            ->where('role', Message::ROLE_USER)
+            ->whereHas('conversation', fn ($query) => $query->where('user_id', $request->user()->id))
+            ->count();
 
         return view('dashboard', [
             'totalDocuments' => $totalDocuments,
             'readyDocuments' => $readyDocuments,
             'pendingDocuments' => $pendingDocuments,
+            'totalQuestions' => $totalQuestions,
             'recentDocuments' => $recentDocuments,
         ]);
     }

@@ -30,11 +30,8 @@
     </nav>
 
     <div class="m-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-        <p class="text-sm font-semibold text-slate-950">Usage preview</p>
-        <p class="mt-1 text-sm text-slate-600">182 of 500 monthly questions used.</p>
-        <div class="mt-3 h-2 rounded-full bg-slate-200">
-            <div class="h-2 w-1/3 rounded-full bg-indigo-600"></div>
-        </div>
+        <p class="text-sm font-semibold text-slate-950">Secure workspace</p>
+        <p class="mt-1 text-sm leading-6 text-slate-600">Your chats use only the ready documents selected for each conversation.</p>
     </div>
 
     <div class="border-t border-slate-200 p-4">

@@ -2,9 +2,9 @@
     $title = 'Dashboard';
     $stats = [
         ['label' => 'Total Documents', 'value' => $totalDocuments, 'meta' => 'Uploads', 'helper' => 'PDFs uploaded by you.', 'tone' => 'indigo'],
-        ['label' => 'Ready Documents', 'value' => $readyDocuments, 'meta' => 'Ready', 'helper' => 'Documents available for future chat workflows.', 'tone' => 'emerald'],
+        ['label' => 'Ready Documents', 'value' => $readyDocuments, 'meta' => 'Ready', 'helper' => 'Documents ready for grounded chat answers.', 'tone' => 'emerald'],
         ['label' => 'Processing or Uploaded', 'value' => $pendingDocuments, 'meta' => 'Queue', 'helper' => 'Documents waiting for extraction, chunks, or embeddings.', 'tone' => 'amber'],
-        ['label' => 'Total Questions Asked', 'value' => '0', 'meta' => 'Coming soon', 'helper' => 'Chat analytics will be connected in a later phase.', 'tone' => 'sky'],
+        ['label' => 'Total Questions Asked', 'value' => $totalQuestions, 'meta' => 'Chat', 'helper' => 'Questions submitted across your conversations.', 'tone' => 'sky'],
     ];
 @endphp
 
@@ -14,7 +14,7 @@
     <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
             <h1 class="text-2xl font-semibold tracking-tight text-slate-950">Dashboard</h1>
-            <p class="mt-2 text-sm text-slate-600">Monitor your document uploads and processing foundation.</p>
+            <p class="mt-2 text-sm text-slate-600">Monitor your documents, processing status, and chat activity.</p>
         </div>
         <div class="flex flex-col gap-3 sm:flex-row">
             <a href="{{ route('documents.index') }}" class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50">
@@ -34,7 +34,7 @@
 
     <section class="mt-6 rounded-lg border border-slate-200 bg-white shadow-sm">
         <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-            <h2 class="font-semibold text-slate-950">Recent uploaded documents</h2>
+            <h2 class="font-semibold text-slate-950">Recently uploaded documents</h2>
             <a href="{{ route('documents.index') }}" class="text-sm font-semibold text-indigo-700 hover:text-indigo-800">View all</a>
         </div>
         <div class="overflow-x-auto">
