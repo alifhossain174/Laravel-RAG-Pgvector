@@ -1,10 +1,10 @@
 @php
-    $tone = $tone ?? 'indigo';
+    $tone = $tone ?? 'teal';
     $styles = [
-        'indigo' => 'bg-indigo-50 text-indigo-700',
+        'teal' => 'bg-teal-50 text-teal-700',
         'emerald' => 'bg-emerald-50 text-emerald-700',
         'amber' => 'bg-amber-50 text-amber-700',
-        'sky' => 'bg-sky-50 text-sky-700',
+        'cyan' => 'bg-cyan-50 text-cyan-700',
     ];
 @endphp
 
@@ -14,7 +14,7 @@
             <p class="text-sm font-medium text-slate-500">{{ $label }}</p>
             <p class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{{ $value }}</p>
         </div>
-        <span class="rounded-lg px-2.5 py-1 text-xs font-semibold {{ $styles[$tone] ?? $styles['indigo'] }}">
+        <span class="rounded-lg px-2.5 py-1 text-xs font-semibold {{ $styles[$tone] ?? $styles['teal'] }}">
             {{ $meta ?? 'Live' }}
         </span>
     </div>

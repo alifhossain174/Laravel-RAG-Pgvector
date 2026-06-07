@@ -1,4 +1,4 @@
-<article class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:border-indigo-200 hover:shadow-md">
+<article class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:border-teal-200 hover:shadow-md">
     <div class="flex items-start justify-between gap-4">
         <div>
             <p class="text-sm font-semibold text-slate-950">{{ $document->displayTitle() }}</p>

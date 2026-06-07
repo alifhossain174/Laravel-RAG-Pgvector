@@ -76,7 +76,7 @@
     }
 
     .rag-markdown a {
-        color: var(--color-indigo-700);
+        color: var(--color-teal-700);
         font-weight: 600;
         text-decoration: underline;
         text-underline-offset: 2px;
@@ -129,7 +129,7 @@
     }
 
     .rag-markdown blockquote {
-        border-left: 3px solid var(--color-indigo-200);
+        border-left: 3px solid var(--color-teal-200);
         padding-left: 1rem;
         color: var(--color-slate-600);
     }

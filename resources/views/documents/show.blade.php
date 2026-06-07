@@ -130,7 +130,7 @@
                     @endphp
                     <div class="flex flex-wrap items-center gap-2">
                         <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">Chunk {{ $chunk->chunk_index }}</span>
-                        <span class="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">{{ $pageLabel }}</span>
+                        <span class="rounded-full bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-700">{{ $pageLabel }}</span>
                         <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">{{ $chunk->token_count ?? 0 }} tokens</span>
                         <span class="rounded-full px-2.5 py-1 text-xs font-semibold {{ $chunk->hasEmbedding() ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700' }}">
                             Embedded: {{ $chunk->hasEmbedding() ? 'Yes' : 'No' }}

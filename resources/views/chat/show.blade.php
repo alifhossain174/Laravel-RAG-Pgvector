@@ -24,7 +24,7 @@
                         <h1 class="font-semibold text-slate-950">Conversations</h1>
                         <p class="mt-1 text-sm text-slate-500">Chat across one, many, or all ready documents.</p>
                     </div>
-                    <button type="button" data-open-conversation-modal class="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm shadow-indigo-200 hover:bg-indigo-700">
+                    <button type="button" data-open-conversation-modal class="rounded-lg bg-teal-600 px-3 py-2 text-sm font-semibold text-white shadow-sm shadow-teal-200 hover:bg-teal-700">
                         New
                     </button>
                 </div>
@@ -32,7 +32,7 @@
                 <form method="GET" action="{{ route('chat.index') }}" class="mt-4 flex gap-2">
                     <label class="min-w-0 flex-1">
                         <span class="sr-only">Search conversations</span>
-                        <input name="search" type="search" value="{{ $search }}" placeholder="Search conversations" class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100">
+                        <input name="search" type="search" value="{{ $search }}" placeholder="Search conversations" class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-100">
                     </label>
                     <button type="submit" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                         Search
@@ -51,7 +51,7 @@
                             default => 'No documents',
                         };
                     @endphp
-                    <article class="rounded-lg border p-4 transition {{ $active ? 'border-indigo-200 bg-indigo-50/70' : 'border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/40' }}">
+                    <article class="rounded-lg border p-4 transition {{ $active ? 'border-teal-200 bg-teal-50/70' : 'border-slate-200 bg-white hover:border-teal-200 hover:bg-teal-50/40' }}">
                         <div class="flex items-start gap-3">
                             <a href="{{ route('chat.show', $item) }}" class="min-w-0 flex-1">
                                 <div class="flex items-start justify-between gap-3">
@@ -60,7 +60,7 @@
                                         <p class="mt-1 text-sm leading-5 text-slate-500">{{ $item->messages_count }} message{{ $item->messages_count === 1 ? '' : 's' }}</p>
                                     </div>
                                     @if ($active)
-                                        <span class="mt-1 size-2 shrink-0 rounded-full bg-indigo-600"></span>
+                                        <span class="mt-1 size-2 shrink-0 rounded-full bg-teal-600"></span>
                                     @endif
                                 </div>
                                 <div class="mt-3 flex flex-wrap items-center gap-2 text-xs font-medium">
@@ -84,7 +84,7 @@
                     <div class="rounded-lg border border-dashed border-slate-300 p-6 text-center">
                         <p class="font-semibold text-slate-950">No conversations yet</p>
                         <p class="mt-2 text-sm leading-6 text-slate-500">Create a conversation and choose which ready documents it can use.</p>
-                        <button type="button" data-open-conversation-modal class="mt-4 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-indigo-200 hover:bg-indigo-700">
+                        <button type="button" data-open-conversation-modal class="mt-4 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-teal-200 hover:bg-teal-700">
                             New Conversation
                         </button>
                     </div>
@@ -103,10 +103,10 @@
                 <div class="border-b border-slate-200 px-5 py-4">
                     <div class="flex flex-col justify-between gap-4 xl:flex-row xl:items-start">
                         <div class="min-w-0">
-                            <p class="text-xs font-semibold uppercase tracking-wide text-indigo-700">DocuMind Chat</p>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-teal-700">DocuMind Chat</p>
                             <h2 class="mt-1 break-words text-xl font-semibold tracking-tight text-slate-950">{{ $conversation->title }}</h2>
                             <div class="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold">
-                                <span class="rounded-full bg-indigo-50 px-2.5 py-1 text-indigo-700 ring-1 ring-indigo-100">{{ $scopeBadgeLabel }}</span>
+                                <span class="rounded-full bg-teal-50 px-2.5 py-1 text-teal-700 ring-1 ring-teal-100">{{ $scopeBadgeLabel }}</span>
                                 <span class="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">{{ $scopeSummary }}</span>
                                 <span class="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">Updated {{ $conversation->updated_at->diffForHumans() }}</span>
                             </div>
@@ -156,7 +156,7 @@
                             <article class="flex justify-end">
                                 <div class="max-w-2xl">
                                     <p class="mb-1 text-right text-xs font-semibold text-slate-500">You</p>
-                                    <div class="rounded-lg bg-indigo-600 px-4 py-3 text-sm leading-6 text-white shadow-sm shadow-indigo-200">
+                                    <div class="rounded-lg bg-teal-600 px-4 py-3 text-sm leading-6 text-white shadow-sm shadow-teal-200">
                                         {{ $message->content }}
                                     </div>
                                 </div>
@@ -178,8 +178,8 @@
                                 @if (($message->metadata['error'] ?? false) === true)
                                     <p class="mt-2 text-xs font-medium text-rose-700">Generation failed safely. Try again when the provider is available.</p>
                                 @elseif ($sources !== [])
-                                    <details class="mt-3 rounded-lg border border-indigo-100 bg-indigo-50/40 p-3" {{ count($sources) <= 2 ? 'open' : '' }}>
-                                        <summary class="cursor-pointer text-sm font-semibold text-indigo-800">
+                                    <details class="mt-3 rounded-lg border border-teal-100 bg-teal-50/40 p-3" {{ count($sources) <= 2 ? 'open' : '' }}>
+                                        <summary class="cursor-pointer text-sm font-semibold text-teal-800">
                                             Sources used ({{ count($sources) }})
                                         </summary>
                                         <div class="mt-3 grid gap-3 md:grid-cols-2">
@@ -233,7 +233,7 @@
                                 <p class="text-sm font-semibold text-slate-950">Sources and citations</p>
                                 <span class="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-500 ring-1 ring-slate-200">Waiting for answer</span>
                             </div>
-                            <div class="rounded-lg border border-dashed border-indigo-200 bg-indigo-50/50 p-4">
+                            <div class="rounded-lg border border-dashed border-teal-200 bg-teal-50/50 p-4">
                                 <p class="text-sm font-semibold text-slate-950">Citations will appear under assistant answers</p>
                                 <p class="mt-2 text-sm leading-6 text-slate-600">Ask a question to retrieve matching chunks from the selected documents.</p>
                             </div>
@@ -252,8 +252,8 @@
 
                     <form id="chatMessageForm" method="POST" action="{{ route('chat.messages.store', $conversation) }}" class="flex min-w-0 flex-col gap-3 sm:flex-row">
                         @csrf
-                        <input id="messageInput" name="content" type="text" value="{{ old('content') }}" maxlength="4000" required placeholder="Ask a question about the selected documents" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100">
-                        <button id="sendMessageButton" type="submit" class="rounded-lg bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-sm shadow-indigo-200 hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400">
+                        <input id="messageInput" name="content" type="text" value="{{ old('content') }}" maxlength="4000" required placeholder="Ask a question about the selected documents" class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-3 text-sm outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-100">
+                        <button id="sendMessageButton" type="submit" class="rounded-lg bg-teal-600 px-5 py-3 text-sm font-semibold text-white shadow-sm shadow-teal-200 hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-teal-400">
                             <span data-send-label>Send</span>
                         </button>
                     </form>
@@ -264,10 +264,10 @@
             @else
                 <div class="grid flex-1 place-items-center p-8 text-center">
                     <div class="max-w-md">
-                        <div class="mx-auto grid size-12 place-items-center rounded-lg bg-indigo-50 text-sm font-bold text-indigo-700 ring-1 ring-indigo-100">C</div>
+                        <div class="mx-auto grid size-12 place-items-center rounded-lg bg-teal-50 text-sm font-bold text-teal-700 ring-1 ring-teal-100">C</div>
                         <h2 class="mt-5 text-xl font-semibold tracking-tight text-slate-950">Create a conversation</h2>
                         <p class="mt-2 text-sm leading-6 text-slate-500">Choose one document, several ready documents, or all ready documents before asking questions.</p>
-                        <button type="button" data-open-conversation-modal class="mt-5 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-indigo-200 hover:bg-indigo-700">
+                        <button type="button" data-open-conversation-modal class="mt-5 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-teal-200 hover:bg-teal-700">
                             New Conversation
                         </button>
                     </div>
@@ -295,7 +295,7 @@
 
                     <label class="block">
                         <span class="text-sm font-medium text-slate-700">Conversation title</span>
-                        <input name="title" type="text" value="{{ old('title') }}" placeholder="Example: Contract renewal questions" class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100">
+                        <input name="title" type="text" value="{{ old('title') }}" placeholder="Example: Contract renewal questions" class="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-100">
                         @error('title')
                             <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
                         @enderror
@@ -305,7 +305,7 @@
                         <legend class="text-sm font-medium text-slate-700">Document selection mode</legend>
                         <div class="mt-2 grid gap-3 sm:grid-cols-2">
                             <label class="flex cursor-pointer gap-3 rounded-lg border border-slate-200 p-4 hover:bg-slate-50">
-                                <input name="scope" value="selected" type="radio" class="mt-1 size-4 border-slate-300 text-indigo-600 focus:ring-indigo-500" @checked(old('scope', \App\Models\Conversation::SCOPE_SELECTED) === \App\Models\Conversation::SCOPE_SELECTED)>
+                                <input name="scope" value="selected" type="radio" class="mt-1 size-4 border-slate-300 text-teal-600 focus:ring-teal-500" @checked(old('scope', \App\Models\Conversation::SCOPE_SELECTED) === \App\Models\Conversation::SCOPE_SELECTED)>
                                 <span>
                                     <span class="block text-sm font-semibold text-slate-950">Selected documents</span>
                                     <span class="mt-1 block text-sm text-slate-500">Pick one or more ready PDFs.</span>
@@ -313,7 +313,7 @@
                             </label>
 
                             <label class="flex cursor-pointer gap-3 rounded-lg border border-slate-200 p-4 hover:bg-slate-50">
-                                <input id="allDocumentsScope" name="scope" value="all" type="radio" class="mt-1 size-4 border-slate-300 text-indigo-600 focus:ring-indigo-500" @checked(old('scope') === \App\Models\Conversation::SCOPE_ALL)>
+                                <input id="allDocumentsScope" name="scope" value="all" type="radio" class="mt-1 size-4 border-slate-300 text-teal-600 focus:ring-teal-500" @checked(old('scope') === \App\Models\Conversation::SCOPE_ALL)>
                                 <span>
                                     <span class="block text-sm font-semibold text-slate-950">All ready documents</span>
                                     <span class="mt-1 block text-sm text-slate-500">Use the full ready-document set.</span>
@@ -328,8 +328,8 @@
                     <div class="mt-5">
                         <div class="flex items-center justify-between gap-3">
                             <p class="text-sm font-medium text-slate-700">Ready documents</p>
-                            <label class="flex items-center gap-2 text-sm font-semibold text-indigo-700">
-                                <input id="selectAllDocuments" type="checkbox" class="size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                            <label class="flex items-center gap-2 text-sm font-semibold text-teal-700">
+                                <input id="selectAllDocuments" type="checkbox" class="size-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500">
                                 <span>Select all documents</span>
                             </label>
                         </div>
@@ -337,7 +337,7 @@
                             <div class="max-h-72 divide-y divide-slate-100 overflow-y-auto">
                                 @forelse ($documents as $document)
                                     <label class="flex items-start gap-3 px-4 py-3 text-sm hover:bg-slate-50">
-                                        <input name="document_ids[]" value="{{ $document->id }}" type="checkbox" class="document-choice mt-1 size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" @checked(in_array($document->id, old('document_ids', [])))>
+                                        <input name="document_ids[]" value="{{ $document->id }}" type="checkbox" class="document-choice mt-1 size-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500" @checked(in_array($document->id, old('document_ids', [])))>
                                         <span>
                                             <span class="block font-medium text-slate-950">{{ $document->displayTitle() }}</span>
                                             <span class="mt-1 block text-xs text-slate-500">{{ $document->total_pages ?? '-' }} pages - {{ $document->statusLabel() }}</span>
@@ -362,7 +362,7 @@
                         <button type="button" data-close-conversation-modal class="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                             Cancel
                         </button>
-                        <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-indigo-200 hover:bg-indigo-700">
+                        <button type="submit" class="rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-teal-200 hover:bg-teal-700">
                             Create Conversation
                         </button>
                     </div>

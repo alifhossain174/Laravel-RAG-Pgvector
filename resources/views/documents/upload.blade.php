@@ -14,8 +14,8 @@
         <form method="POST" action="{{ route('documents.store') }}" enctype="multipart/form-data" class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             @csrf
 
-            <label for="document" class="block cursor-pointer rounded-lg border-2 border-dashed border-indigo-200 bg-indigo-50/40 p-8 text-center transition hover:border-indigo-300 hover:bg-indigo-50">
-                <div class="mx-auto grid size-12 place-items-center rounded-lg bg-white text-sm font-bold text-indigo-700 shadow-sm">PDF</div>
+            <label for="document" class="block cursor-pointer rounded-lg border-2 border-dashed border-teal-200 bg-teal-50/40 p-8 text-center transition hover:border-teal-300 hover:bg-teal-50">
+                <div class="mx-auto grid size-12 place-items-center rounded-lg bg-white text-sm font-bold text-teal-700 shadow-sm">PDF</div>
                 <p class="mt-4 font-semibold text-slate-950">Choose a PDF to upload</p>
                 <p class="mt-2 text-sm text-slate-500">PDF only. Maximum file size is 20MB.</p>
                 <span class="mt-5 inline-flex rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">
@@ -30,7 +30,7 @@
             <div class="mt-6 grid gap-5">
                 <label class="block">
                     <span class="text-sm font-medium text-slate-700">Document title</span>
-                    <input name="title" type="text" value="{{ old('title') }}" class="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100" placeholder="Optional title">
+                    <input name="title" type="text" value="{{ old('title') }}" class="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-100" placeholder="Optional title">
                     @error('title')
                         <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
                     @enderror
@@ -38,7 +38,7 @@
 
                 <label class="block">
                     <span class="text-sm font-medium text-slate-700">Description</span>
-                    <textarea name="description" rows="4" class="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100" placeholder="Optional document description">{{ old('description') }}</textarea>
+                    <textarea name="description" rows="4" class="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-100" placeholder="Optional document description">{{ old('description') }}</textarea>
                     @error('description')
                         <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
                     @enderror
@@ -53,7 +53,7 @@
                 <p class="mt-3 text-sm leading-6 text-slate-500">The PDF is stored privately, then a queued job extracts pages, creates chunks, and generates embeddings. The document status updates as processing completes.</p>
             </div>
 
-            <button type="submit" class="mt-6 w-full rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm shadow-indigo-200 hover:bg-indigo-700">
+            <button type="submit" class="mt-6 w-full rounded-lg bg-teal-600 px-4 py-3 text-sm font-semibold text-white shadow-sm shadow-teal-200 hover:bg-teal-700">
                 Upload PDF
             </button>
         </form>

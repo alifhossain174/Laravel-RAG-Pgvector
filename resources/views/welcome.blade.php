@@ -16,7 +16,7 @@
     <section class="bg-white">
         <div class="mx-auto grid max-w-7xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-20">
             <div>
-                <p class="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-700">Document intelligence</p>
+                <p class="text-sm font-semibold uppercase tracking-[0.2em] text-teal-700">Document intelligence</p>
                 <h1 class="mt-5 max-w-3xl text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
                     DocuMind
                 </h1>
@@ -24,7 +24,7 @@
                     DocuMind turns uploaded PDFs into source-backed answers with page citations and document-scoped conversations.
                 </p>
                 <div class="mt-8 flex flex-col gap-3 sm:flex-row">
-                    <a href="{{ route('documents.create') }}" class="rounded-lg bg-indigo-600 px-5 py-3 text-center text-sm font-semibold text-white shadow-sm shadow-indigo-200 hover:bg-indigo-700">
+                    <a href="{{ route('documents.create') }}" class="rounded-lg bg-teal-600 px-5 py-3 text-center text-sm font-semibold text-white shadow-sm shadow-teal-200 hover:bg-teal-700">
                         Upload Document
                     </a>
                     <a href="{{ route('dashboard') }}" class="rounded-lg border border-slate-300 bg-white px-5 py-3 text-center text-sm font-semibold text-slate-800 hover:bg-slate-50">
@@ -43,12 +43,12 @@
                         @include('partials.status-badge', ['status' => 'ready'])
                     </div>
                     <div class="mt-5 space-y-4">
-                        <div class="ml-auto max-w-[80%] rounded-lg bg-indigo-600 px-4 py-3 text-sm text-white">
+                        <div class="ml-auto max-w-[80%] rounded-lg bg-teal-600 px-4 py-3 text-sm text-white">
                             What approvals are required above $50,000?
                         </div>
                         <div class="max-w-[88%] rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-700">
                             Purchases above $50,000 require department head approval and finance review before vendor onboarding.
-                            <div class="mt-3 rounded-md bg-indigo-50 p-3 text-xs text-indigo-800">
+                            <div class="mt-3 rounded-md bg-teal-50 p-3 text-xs text-teal-800">
                                 Source: selected PDF, page 8
                             </div>
                         </div>
@@ -75,7 +75,7 @@
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                 <div>
-                    <p class="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-700">Workflow</p>
+                    <p class="text-sm font-semibold uppercase tracking-[0.2em] text-teal-700">Workflow</p>
                     <h2 class="mt-3 text-2xl font-semibold tracking-tight text-slate-950">From uploaded file to cited answer</h2>
                 </div>
                 <p class="max-w-xl text-sm leading-6 text-slate-600">Uploaded PDFs are extracted, chunked, embedded, and searched so answers can stay grounded in source material.</p>
@@ -84,7 +84,7 @@
             <div class="mt-8 grid gap-4 md:grid-cols-4">
                 @foreach ($steps as $index => $step)
                     <div class="rounded-lg border border-slate-200 bg-slate-50 p-5">
-                        <span class="grid size-9 place-items-center rounded-lg bg-indigo-600 text-sm font-semibold text-white">{{ $index + 1 }}</span>
+                        <span class="grid size-9 place-items-center rounded-lg bg-teal-600 text-sm font-semibold text-white">{{ $index + 1 }}</span>
                         <p class="mt-5 font-semibold text-slate-950">{{ $step }}</p>
                     </div>
                 @endforeach
@@ -95,7 +95,7 @@
     <section class="bg-slate-950 py-14 text-white">
         <div class="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-3 lg:px-8">
             <div class="lg:col-span-2">
-                <p class="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-300">Workspace ready</p>
+                <p class="text-sm font-semibold uppercase tracking-[0.2em] text-teal-300">Workspace ready</p>
                 <h2 class="mt-3 text-2xl font-semibold tracking-tight">Built for private document conversations</h2>
                 <p class="mt-4 max-w-2xl text-sm leading-6 text-slate-300">Upload PDFs, create document-scoped conversations, and ask questions with retrieved source citations.</p>
             </div>
