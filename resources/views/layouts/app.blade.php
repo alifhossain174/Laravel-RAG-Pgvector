@@ -39,23 +39,40 @@
             @endisset
 
             <main class="mx-auto w-full {{ $mainMaxWidth ?? 'max-w-screen-2xl' }} px-4 py-6 sm:px-6 lg:px-8">
-                @if (session('success'))
-                    <div class="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
-                        {{ session('success') }}
-                    </div>
-                @endif
-
-                @if (session('error'))
-                    <div class="mb-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-                        {{ session('error') }}
-                    </div>
-                @endif
-
                 @yield('content')
                 {{ $slot ?? '' }}
             </main>
         </div>
     </div>
+@endif
+
+@if (session('success') || session('error'))
+    <div id="toastNotification" class="fixed right-4 top-4 z-50 w-[calc(100%-2rem)] max-w-sm rounded-lg border bg-white px-4 py-3 text-sm font-medium shadow-lg shadow-slate-200 transition duration-300 sm:right-6 {{ session('success') ? 'border-emerald-200 text-emerald-800' : 'border-rose-200 text-rose-800' }}" role="status" aria-live="polite">
+        <div class="flex items-start justify-between gap-3">
+            <p>{{ session('success') ?? session('error') }}</p>
+            <button type="button" data-dismiss-toast class="-mr-1 rounded-md px-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Dismiss notification">
+                &times;
+            </button>
+        </div>
+    </div>
+    <script>
+        (() => {
+            const toast = document.getElementById('toastNotification');
+            const dismissButton = toast?.querySelector('[data-dismiss-toast]');
+
+            const dismiss = () => {
+                if (!toast) {
+                    return;
+                }
+
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            };
+
+            dismissButton?.addEventListener('click', dismiss);
+            setTimeout(dismiss, 3500);
+        })();
+    </script>
 @endif
 </body>
 </html>

@@ -18,7 +18,7 @@
 @extends('layouts.app')
 
 @section('content')
-    <div class="grid min-w-0 gap-6 overflow-x-hidden lg:h-[calc(100vh-9rem)] lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:overflow-hidden">
+    <div class="grid min-w-0 gap-6 overflow-x-hidden lg:h-[calc(100vh-5.5rem)] lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)] lg:overflow-hidden">
         <aside class="min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm lg:h-full lg:overflow-hidden">
             <div class="border-b border-slate-200 p-5">
                 <div class="flex items-center justify-between gap-3">
