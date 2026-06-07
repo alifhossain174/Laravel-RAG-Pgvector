@@ -17,6 +17,8 @@ The project is built as a practical Retrieval-Augmented Generation application: 
 - Single-document, multi-document, and all-document conversation scopes
 - Gemini answer generation using retrieved context
 - Citation metadata stored with assistant messages
+- App-side Gemini free-tier quota tracking for shared API keys
+- Non-reloading chat submission with Blade-rendered AJAX responses
 - Clean Blade + Tailwind CSS SaaS interface
 - Feature and unit test coverage for the core flows
 
@@ -46,7 +48,7 @@ The project is built as a practical Retrieval-Augmented Generation application: 
 - Blade templates
 - Tailwind CSS v4
 - Vite
-- Minimal JavaScript for chat UX, modal handling, loading states, and prompt actions
+- Minimal JavaScript for AJAX chat UX, quota refreshes, modal handling, loading states, and prompt actions
 
 **Testing**
 
@@ -71,6 +73,7 @@ The project is built as a practical Retrieval-Augmented Generation application: 
 12. `RagRetrievalService` retrieves the most relevant chunks from the allowed document scope.
 13. `LlmService` asks Gemini to answer using only the retrieved context.
 14. The assistant response and citation metadata are saved to the conversation.
+15. The chat UI updates the answer, conversation metadata, and Gemini quota card without a full page reload.
 
 ## RAG Architecture
 
@@ -109,6 +112,10 @@ Ready Document
    |
    v
 Conversation Question
+   |
+   +--> GeminiRateLimitService
+   |       - checks shared Gemini RPM/TPM/RPD counters
+   |       - prevents requests when local app quota is exhausted
    |
    +--> RagRetrievalService
    |       - embeds question
@@ -194,9 +201,26 @@ Messages store user and assistant chat history. Assistant messages include citat
 - `PdfExtractorService` - extracts and cleans PDF text with page awareness.
 - `DocumentChunker` - creates overlapping chunks and maps them to source pages.
 - `EmbeddingService` - creates Gemini embeddings and validates vector dimensions.
+- `GeminiRateLimitService` - tracks shared Gemini request and token limits in cache.
 - `RagRetrievalService` - retrieves relevant chunks using pgvector.
 - `RagPromptBuilder` - builds concise grounded prompts from retrieved context.
 - `LlmService` - generates answers with Gemini using retrieved chunks.
+
+## Gemini Quota Tracking
+
+The app includes local, project-wide Gemini quota tracking for deployments that use one shared Gemini API key.
+
+Tracked limits:
+
+- Requests per minute (`RPM`)
+- Tokens per minute (`TPM`)
+- Requests per day (`RPD`)
+
+The quota guard is applied before Gemini embedding and chat calls. If the locally tracked quota is exhausted, the app prevents the next chat request and disables the chat controls until the relevant window resets. The sidebar shows the shared remaining quota for chat answers and embeddings.
+
+This quota is intentionally global for the app, not per user. If multiple users share one Gemini API key, they also share the same local quota counters. This avoids showing each user a fake independent allowance, but it is still first-come-first-served. Add separate per-user quotas if you need fair usage distribution between users.
+
+Important caveat: the app can only track Gemini calls made through this Laravel application. Usage from Google AI Studio, scripts, Postman, or another application using the same API key will not be visible to these local counters, and Gemini may still return a real provider-side `429`.
 
 ## Background Jobs
 
@@ -254,6 +278,10 @@ The interface is designed as a focused SaaS dashboard:
 - Document details page with processing timeline and chunk previews
 - Conversation-centric chat page
 - Selected document panel and source citation cards
+- Collapsed source sections by default so users open citations only when needed
+- AJAX message submission that appends answers without reloading the page
+- Floating toast notifications for success/error messages
+- Sidebar Gemini quota card for shared free-tier usage
 - Responsive sidebar and mobile navigation
 
 ## Security and Authorization
@@ -346,6 +374,14 @@ GEMINI_API_KEY=
 GEMINI_EMBEDDING_MODEL=gemini-embedding-2
 GEMINI_CHAT_MODEL=gemini-2.5-flash
 EMBEDDING_DIMENSIONS=1536
+GEMINI_RATE_LIMITS_ENABLED=true
+GEMINI_RATE_LIMIT_PROJECT="${APP_NAME}"
+GEMINI_2_5_FLASH_RPM=5
+GEMINI_2_5_FLASH_TPM=250000
+GEMINI_2_5_FLASH_RPD=20
+GEMINI_EMBEDDING_2_RPM=100
+GEMINI_EMBEDDING_2_TPM=30000
+GEMINI_EMBEDDING_2_RPD=1000
 LLM_TEMPERATURE=0.2
 LLM_MAX_OUTPUT_TOKENS=3000
 LLM_CONTINUATION_ATTEMPTS=1
@@ -370,6 +406,8 @@ MAIL_FROM_NAME="${APP_NAME}"
 ```
 
 If `PDFTOTEXT_PATH` is empty, the app lets Spatie/Poppler resolve `pdftotext` from the system path.
+
+The Gemini rate-limit defaults above match the free-tier limits used by this project during development. Check your Gemini dashboard and update these values if Google changes your project limits or if you switch to a paid tier.
 
 ## Testing the Full Flow
 
@@ -439,12 +477,15 @@ LIMIT 10;
 - Tables, charts, and graph-heavy PDFs may lose structure during text extraction.
 - Retrieval quality depends on extracted text quality and chunk boundaries.
 - Streaming responses are not implemented.
+- Gemini quota tracking is local to this Laravel app and cannot see API-key usage from outside the app.
+- Shared Gemini quota is global and first-come-first-served; per-user quota distribution is not implemented.
 - Multi-turn memory optimization is intentionally kept simple for the MVP.
 
 ## Future Improvements
 
 - OCR support for scanned PDFs
 - Streaming chat responses
+- Per-user quota allocation on top of the shared Gemini project quota
 - Organization/team workspaces
 - Conversation renaming and document scope editing
 - Advanced retrieval reranking
