@@ -1,6 +1,6 @@
 # DocuMind - AI PDF Document Assistant
 
-![DocuMind Laravel RAG Document Assistant](docs/images/documind-readme-hero.svg)
+![DocuMind Laravel RAG Document Assistant](docs/images/documind-readme-hero-v2.svg)
 
 DocuMind is a full-stack Laravel application for uploading PDFs, processing them into searchable chunks, storing vector embeddings with PostgreSQL pgvector, and answering document-scoped questions with source citations.
 
