@@ -219,6 +219,36 @@ class DocumentManagementTest extends TestCase
             ->assertDontSee('Laptop Comparison');
     }
 
+    public function test_documents_index_search_returns_ajax_results(): void
+    {
+        $user = User::factory()->create();
+
+        $user->documents()->create([
+            'title' => 'Mobile Purchase',
+            'original_filename' => 'budget-phones.pdf',
+            'file_path' => 'documents/'.$user->id.'/budget-phones.pdf',
+            'status' => 'ready',
+        ]);
+
+        $user->documents()->create([
+            'title' => 'Laptop Comparison',
+            'original_filename' => 'laptops.pdf',
+            'file_path' => 'documents/'.$user->id.'/laptops.pdf',
+            'status' => 'ready',
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->getJson(route('documents.index', ['search' => 'mobile']));
+
+        $response
+            ->assertOk()
+            ->assertJsonStructure(['html']);
+
+        $this->assertStringContainsString('Mobile Purchase', $response->json('html'));
+        $this->assertStringNotContainsString('Laptop Comparison', $response->json('html'));
+    }
+
     public function test_user_cannot_view_another_users_document(): void
     {
         $user = User::factory()->create();

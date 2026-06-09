@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Jobs\ProcessDocumentJob;
 use App\Models\Document;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -54,7 +55,7 @@ class DocumentController extends Controller
             ->with('success', 'Document uploaded successfully. Processing has started.');
     }
 
-    public function index(Request $request): View
+    public function index(Request $request): View|JsonResponse
     {
         $search = trim((string) $request->query('search'));
         $status = $request->query('status');
@@ -76,12 +77,20 @@ class DocumentController extends Controller
             ->paginate(9)
             ->withQueryString();
 
-        return view('documents.index', [
+        $viewData = [
             'documents' => $documents,
             'statuses' => Document::STATUSES,
             'search' => $search,
             'selectedStatus' => in_array($status, Document::STATUSES, true) ? $status : null,
-        ]);
+        ];
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'html' => view('documents.partials.results', $viewData)->render(),
+            ]);
+        }
+
+        return view('documents.index', $viewData);
     }
 
     public function show(Document $document): View

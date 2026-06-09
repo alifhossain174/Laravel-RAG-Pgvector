@@ -31,73 +31,21 @@
                     </button>
                 </div>
 
-                <form method="GET" action="{{ route('chat.index') }}" class="mt-4 flex gap-2">
+                <form id="conversationSearchForm" method="GET" action="{{ $conversation ? route('chat.show', $conversation) : route('chat.index') }}" data-live-conversation-search data-results-target="#conversationSearchResults" data-status-target="#conversationSearchStatus" class="mt-4">
                     <label class="min-w-0 flex-1">
                         <span class="sr-only">Search conversations</span>
-                        <input name="search" type="search" value="{{ $search }}" placeholder="Search conversations" class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-100">
+                        <input name="search" type="search" value="{{ $search }}" placeholder="Search conversations" autocomplete="off" class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-100">
                     </label>
-                    <button type="submit" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                        Search
-                    </button>
+                    <p id="conversationSearchStatus" class="sr-only" aria-live="polite"></p>
                 </form>
             </div>
 
-            <div class="max-h-80 space-y-3 overflow-y-auto p-4 lg:max-h-[calc(100vh-19rem)]">
-                @forelse ($conversations as $item)
-                    @php
-                        $active = $conversation?->is($item) ?? false;
-                        $itemScopeLabel = match (true) {
-                            $item->scope === \App\Models\Conversation::SCOPE_ALL => 'All documents',
-                            $item->documents_count === 1 => 'Single document',
-                            $item->documents_count > 1 => 'Multiple documents',
-                            default => 'No documents',
-                        };
-                    @endphp
-                    <article class="rounded-lg border p-4 transition {{ $active ? 'border-teal-200 bg-teal-50/70' : 'border-slate-200 bg-white hover:border-teal-200 hover:bg-teal-50/40' }}" @if ($active) data-active-conversation-card @endif>
-                        <div class="flex items-start gap-3">
-                            <a href="{{ route('chat.show', $item) }}" class="min-w-0 flex-1">
-                                <div class="flex items-start justify-between gap-3">
-                                    <div class="min-w-0">
-                                        <p class="truncate text-sm font-semibold text-slate-950" @if ($active) data-active-conversation-title @endif>{{ $item->title }}</p>
-                                        <p class="mt-1 text-sm leading-5 text-slate-500" @if ($active) data-active-conversation-message-count @endif>{{ $item->messages_count }} message{{ $item->messages_count === 1 ? '' : 's' }}</p>
-                                    </div>
-                                    @if ($active)
-                                        <span class="mt-1 size-2 shrink-0 rounded-full bg-teal-600"></span>
-                                    @endif
-                                </div>
-                                <div class="mt-3 flex flex-wrap items-center gap-2 text-xs font-medium">
-                                    <span class="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">{{ $itemScopeLabel }}</span>
-                                    <span class="text-slate-400" @if ($active) data-active-conversation-updated @endif>{{ $item->updated_at->diffForHumans() }}</span>
-                                </div>
-                            </a>
-
-                            <div class="shrink-0">
-                                <form method="POST" action="{{ route('chat.destroy', $item) }}" onsubmit="return confirm('Delete this conversation and all of its messages?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50">
-                                        Delete
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    </article>
-                @empty
-                    <div class="rounded-lg border border-dashed border-slate-300 p-6 text-center">
-                        <p class="font-semibold text-slate-950">No conversations yet</p>
-                        <p class="mt-2 text-sm leading-6 text-slate-500">Create a conversation and choose which ready documents it can use.</p>
-                        <button type="button" data-open-conversation-modal class="mt-4 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-teal-200 hover:bg-teal-700">
-                            New Conversation
-                        </button>
-                    </div>
-                @endforelse
+            <div id="conversationSearchResults">
+                @include('chat.partials.conversation-list', [
+                    'conversations' => $conversations,
+                    'conversation' => $conversation,
+                ])
             </div>
-
-            @if ($conversations->hasPages())
-                <div class="border-t border-slate-200 px-4 py-3">
-                    {{ $conversations->links() }}
-                </div>
-            @endif
         </aside>
 
         <section class="min-w-0 overflow-hidden flex min-h-[calc(100vh-9rem)] flex-col rounded-lg border border-slate-200 bg-white shadow-sm lg:h-full lg:min-h-0">
@@ -329,6 +277,10 @@
             const modal = document.getElementById('conversationModal');
             const openButtons = document.querySelectorAll('[data-open-conversation-modal]');
             const closeButtons = document.querySelectorAll('[data-close-conversation-modal]');
+            const conversationSearchForm = document.querySelector('[data-live-conversation-search]');
+            const conversationSearchResults = conversationSearchForm ? document.querySelector(conversationSearchForm.dataset.resultsTarget) : null;
+            const conversationSearchStatus = conversationSearchForm ? document.querySelector(conversationSearchForm.dataset.statusTarget) : null;
+            const conversationSearchInput = conversationSearchForm?.querySelector('input[name="search"]');
             const selectAll = document.getElementById('selectAllDocuments');
             const documentChoices = document.querySelectorAll('.document-choice');
             const selectedScope = document.querySelector('input[name="scope"][value="selected"]');
@@ -346,9 +298,8 @@
             const formStatus = document.getElementById('chatFormStatus');
             const conversationHeading = document.querySelector('[data-conversation-heading]');
             const conversationUpdated = document.querySelector('[data-conversation-updated]');
-            const activeConversationTitle = document.querySelector('[data-active-conversation-title]');
-            const activeConversationMessageCount = document.querySelector('[data-active-conversation-message-count]');
-            const activeConversationUpdated = document.querySelector('[data-active-conversation-updated]');
+            let conversationSearchTimeout;
+            let conversationSearchRequest;
 
             const scrollToBottom = () => {
                 if (messageThread) {
@@ -453,6 +404,10 @@
                     conversationUpdated.textContent = `Updated ${conversation.updated_label}`;
                 }
 
+                const activeConversationTitle = document.querySelector('[data-active-conversation-title]');
+                const activeConversationMessageCount = document.querySelector('[data-active-conversation-message-count]');
+                const activeConversationUpdated = document.querySelector('[data-active-conversation-updated]');
+
                 if (activeConversationTitle) {
                     activeConversationTitle.textContent = conversation.title;
                 }
@@ -470,8 +425,89 @@
                 button.addEventListener('click', () => modal.classList.remove('hidden'));
             });
 
+            document.addEventListener('click', (event) => {
+                if (event.target.closest('[data-open-conversation-modal]')) {
+                    modal.classList.remove('hidden');
+                }
+            });
+
             closeButtons.forEach((button) => {
                 button.addEventListener('click', () => modal.classList.add('hidden'));
+            });
+
+            const buildConversationSearchUrl = () => {
+                const url = new URL(conversationSearchForm.action, window.location.origin);
+                const search = conversationSearchInput?.value.trim() || '';
+
+                if (search !== '') {
+                    url.searchParams.set('search', search);
+                } else {
+                    url.searchParams.delete('search');
+                }
+
+                return url;
+            };
+
+            const setConversationSearchStatus = (message) => {
+                if (conversationSearchStatus) {
+                    conversationSearchStatus.textContent = message;
+                }
+            };
+
+            const loadConversationSearchResults = async (url) => {
+                if (!conversationSearchResults) {
+                    return;
+                }
+
+                conversationSearchRequest?.abort();
+                conversationSearchRequest = new AbortController();
+                setConversationSearchStatus('Searching');
+
+                try {
+                    const response = await fetch(url, {
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        signal: conversationSearchRequest.signal,
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Search failed.');
+                    }
+
+                    const payload = await response.json();
+                    conversationSearchResults.innerHTML = payload.html || '';
+                    window.history.replaceState({}, '', url);
+                    setConversationSearchStatus('Search results updated');
+                } catch (error) {
+                    if (error.name !== 'AbortError') {
+                        setConversationSearchStatus('Search failed');
+                    }
+                }
+            };
+
+            const scheduleConversationSearch = () => {
+                clearTimeout(conversationSearchTimeout);
+                conversationSearchTimeout = setTimeout(() => loadConversationSearchResults(buildConversationSearchUrl()), 250);
+            };
+
+            conversationSearchForm?.addEventListener('submit', (event) => {
+                event.preventDefault();
+                loadConversationSearchResults(buildConversationSearchUrl());
+            });
+
+            conversationSearchInput?.addEventListener('input', scheduleConversationSearch);
+
+            conversationSearchResults?.addEventListener('click', (event) => {
+                const link = event.target.closest('[data-live-pagination] a');
+
+                if (!link) {
+                    return;
+                }
+
+                event.preventDefault();
+                loadConversationSearchResults(new URL(link.href));
             });
 
             selectAll?.addEventListener('change', (event) => {

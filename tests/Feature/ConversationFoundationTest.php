@@ -104,6 +104,32 @@ class ConversationFoundationTest extends TestCase
             ->assertDontSee('Laptop Comparison');
     }
 
+    public function test_conversation_search_returns_ajax_results(): void
+    {
+        $user = User::factory()->create();
+
+        $user->conversations()->create([
+            'title' => 'Mobile Purchase',
+            'scope' => Conversation::SCOPE_ALL,
+        ]);
+
+        $user->conversations()->create([
+            'title' => 'Laptop Comparison',
+            'scope' => Conversation::SCOPE_ALL,
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->getJson(route('chat.index', ['search' => 'mobile']));
+
+        $response
+            ->assertOk()
+            ->assertJsonStructure(['html']);
+
+        $this->assertStringContainsString('Mobile Purchase', $response->json('html'));
+        $this->assertStringNotContainsString('Laptop Comparison', $response->json('html'));
+    }
+
     public function test_user_cannot_access_another_users_conversation(): void
     {
         $user = User::factory()->create();

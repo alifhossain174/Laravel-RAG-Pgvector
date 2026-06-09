@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Conversation;
 use App\Models\Document;
 use App\Services\GeminiRateLimitService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,12 +14,12 @@ use Illuminate\View\View;
 
 class ConversationController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|JsonResponse
     {
         return $this->viewChat($request);
     }
 
-    public function create(Request $request): View
+    public function create(Request $request): View|JsonResponse
     {
         return $this->viewChat($request, openCreateConversationModal: true);
     }
@@ -56,7 +57,7 @@ class ConversationController extends Controller
             ->with('success', 'Conversation created successfully.');
     }
 
-    public function show(Request $request, Conversation $conversation): View
+    public function show(Request $request, Conversation $conversation): View|JsonResponse
     {
         $this->authorize('view', $conversation);
 
@@ -78,7 +79,7 @@ class ConversationController extends Controller
         Request $request,
         ?Conversation $activeConversation = null,
         bool $openCreateConversationModal = false
-    ): View {
+    ): View|JsonResponse {
         $search = trim((string) $request->query('search'));
 
         $conversations = $request->user()
@@ -90,6 +91,15 @@ class ConversationController extends Controller
             ->latest('updated_at')
             ->paginate(15)
             ->withQueryString();
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'html' => view('chat.partials.conversation-list', [
+                    'conversations' => $conversations,
+                    'conversation' => $activeConversation,
+                ])->render(),
+            ]);
+        }
 
         $readyDocuments = $request->user()
             ->documents()
