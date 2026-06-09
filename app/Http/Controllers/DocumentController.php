@@ -63,8 +63,10 @@ class DocumentController extends Controller
             ->documents()
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($query) use ($search) {
-                    $query->where('title', 'like', '%'.$search.'%')
-                        ->orWhere('original_filename', 'like', '%'.$search.'%');
+                    $operator = $this->caseInsensitiveLikeOperator($query);
+
+                    $query->where('title', $operator, '%'.$search.'%')
+                        ->orWhere('original_filename', $operator, '%'.$search.'%');
                 });
             })
             ->when(in_array($status, Document::STATUSES, true), function ($query) use ($status) {
@@ -104,5 +106,10 @@ class DocumentController extends Controller
         return redirect()
             ->route('documents.index')
             ->with('success', 'Document deleted successfully.');
+    }
+
+    private function caseInsensitiveLikeOperator($query): string
+    {
+        return $query->getConnection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
     }
 }

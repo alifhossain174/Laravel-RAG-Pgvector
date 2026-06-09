@@ -85,7 +85,7 @@ class ConversationController extends Controller
             ->conversations()
             ->withCount(['documents', 'messages'])
             ->when($search !== '', function ($query) use ($search) {
-                $query->where('title', 'like', '%'.$search.'%');
+                $query->where('title', $this->caseInsensitiveLikeOperator($query), '%'.$search.'%');
             })
             ->latest('updated_at')
             ->paginate(15)
@@ -119,5 +119,10 @@ class ConversationController extends Controller
             'openCreateConversationModal' => $openCreateConversationModal,
             'geminiQuota' => app(GeminiRateLimitService::class)->chatSnapshot(),
         ]);
+    }
+
+    private function caseInsensitiveLikeOperator($query): string
+    {
+        return $query->getConnection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
     }
 }

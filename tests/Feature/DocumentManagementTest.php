@@ -186,6 +186,39 @@ class DocumentManagementTest extends TestCase
         $response->assertDontSee('Hidden Document');
     }
 
+    public function test_documents_index_search_is_case_insensitive(): void
+    {
+        $user = User::factory()->create();
+
+        $user->documents()->create([
+            'title' => 'Mobile Purchase',
+            'original_filename' => 'Budget-Phones.pdf',
+            'file_path' => 'documents/'.$user->id.'/budget-phones.pdf',
+            'status' => 'ready',
+        ]);
+
+        $user->documents()->create([
+            'title' => 'Laptop Comparison',
+            'original_filename' => 'laptops.pdf',
+            'file_path' => 'documents/'.$user->id.'/laptops.pdf',
+            'status' => 'ready',
+        ]);
+
+        $this
+            ->actingAs($user)
+            ->get(route('documents.index', ['search' => 'mobile']))
+            ->assertOk()
+            ->assertSee('Mobile Purchase')
+            ->assertDontSee('Laptop Comparison');
+
+        $this
+            ->actingAs($user)
+            ->get(route('documents.index', ['search' => 'budget-phones']))
+            ->assertOk()
+            ->assertSee('Mobile Purchase')
+            ->assertDontSee('Laptop Comparison');
+    }
+
     public function test_user_cannot_view_another_users_document(): void
     {
         $user = User::factory()->create();

@@ -82,6 +82,28 @@ class ConversationFoundationTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_conversation_search_is_case_insensitive(): void
+    {
+        $user = User::factory()->create();
+
+        $user->conversations()->create([
+            'title' => 'Mobile Purchase',
+            'scope' => Conversation::SCOPE_ALL,
+        ]);
+
+        $user->conversations()->create([
+            'title' => 'Laptop Comparison',
+            'scope' => Conversation::SCOPE_ALL,
+        ]);
+
+        $this
+            ->actingAs($user)
+            ->get(route('chat.index', ['search' => 'mobile']))
+            ->assertOk()
+            ->assertSee('Mobile Purchase')
+            ->assertDontSee('Laptop Comparison');
+    }
+
     public function test_user_cannot_access_another_users_conversation(): void
     {
         $user = User::factory()->create();
