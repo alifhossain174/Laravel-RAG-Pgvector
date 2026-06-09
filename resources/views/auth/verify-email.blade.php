@@ -1,7 +1,7 @@
 <x-guest-layout
     title="Verify email"
     heading="Verify your email address"
-    description="Before entering the document assistant, confirm your email using the link Laravel sent to your inbox."
+    description="Before entering the document assistant, confirm your email using the secure link sent to your inbox."
 >
     @if (session('status') == 'verification-link-sent')
         <div class="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">

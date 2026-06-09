@@ -1,7 +1,7 @@
 <x-guest-layout
     title="Forgot password"
     heading="Reset your password"
-    description="Enter your email and Laravel will send the default password reset notification."
+    description="Enter your email and DocuMind will send a secure reset link to your inbox."
 >
     <x-auth-session-status class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700" :status="session('status')" />
 
