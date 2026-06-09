@@ -47,7 +47,8 @@ class DocumentChunker
             $content = trim(mb_substr($text, $start, $end - $start, 'UTF-8'));
 
             if ($content !== '') {
-                [$pageStart, $pageEnd] = $this->pageRangeForOffsets($pageRanges, $start, $end);
+                [$pageStart, $pageEnd, $sourcePages] = $this->pageRangeForOffsets($pageRanges, $start, $end);
+                $extractionMethods = $this->extractionMethods($sourcePages);
 
                 $chunks[] = [
                     'chunk_index' => $index,
@@ -58,7 +59,9 @@ class DocumentChunker
                     'metadata' => [
                         'chunk_size' => $chunkSize,
                         'chunk_overlap' => $overlap,
-                        'source' => 'pdf_text_extraction',
+                        'source' => $this->sourceForMethods($extractionMethods),
+                        'extraction_methods' => $extractionMethods,
+                        'pages' => $sourcePages,
                     ],
                 ];
 
@@ -97,10 +100,17 @@ class DocumentChunker
             $end = mb_strlen($text, 'UTF-8');
 
             if (isset($page['page']) && is_numeric($page['page'])) {
+                $pageNumber = (int) $page['page'];
+                $metadata = is_array($page['metadata'] ?? null) ? $page['metadata'] : [];
+
                 $pageRanges[] = [
-                    'page' => (int) $page['page'],
+                    'page' => $pageNumber,
                     'start' => $start,
                     'end' => $end,
+                    'metadata' => array_merge([
+                        'page' => $pageNumber,
+                        'extraction_method' => 'native',
+                    ], $metadata),
                 ];
             }
         }
@@ -111,6 +121,7 @@ class DocumentChunker
     private function pageRangeForOffsets(array $pageRanges, int $start, int $end): array
     {
         $pages = [];
+        $sourcePages = [];
 
         foreach ($pageRanges as $range) {
             if ($range['end'] <= $start || $range['start'] >= $end) {
@@ -118,13 +129,69 @@ class DocumentChunker
             }
 
             $pages[] = $range['page'];
+            $sourcePages[] = $range['metadata'] ?? [
+                'page' => $range['page'],
+                'extraction_method' => 'native',
+            ];
         }
 
         if ($pages === []) {
-            return [null, null];
+            return [null, null, []];
         }
 
-        return [min($pages), max($pages)];
+        return [min($pages), max($pages), $this->uniqueSourcePages($sourcePages)];
+    }
+
+    private function extractionMethods(array $sourcePages): array
+    {
+        $methods = [];
+
+        foreach ($sourcePages as $page) {
+            $method = (string) ($page['extraction_method'] ?? '');
+
+            if ($method !== '' && ! in_array($method, $methods, true)) {
+                $methods[] = $method;
+            }
+        }
+
+        return $methods;
+    }
+
+    private function sourceForMethods(array $methods): string
+    {
+        if ($methods === ['ocr']) {
+            return 'pdf_ocr';
+        }
+
+        if (in_array('ocr', $methods, true)) {
+            return 'pdf_mixed_extraction';
+        }
+
+        return 'pdf_text_extraction';
+    }
+
+    private function uniqueSourcePages(array $sourcePages): array
+    {
+        $unique = [];
+        $seen = [];
+
+        foreach ($sourcePages as $page) {
+            $pageNumber = $page['page'] ?? null;
+            $method = (string) ($page['extraction_method'] ?? 'native');
+            $key = $pageNumber.'|'.$method;
+
+            if (isset($seen[$key])) {
+                continue;
+            }
+
+            $seen[$key] = true;
+            $unique[] = [
+                'page' => is_numeric($pageNumber) ? (int) $pageNumber : null,
+                'extraction_method' => $method,
+            ];
+        }
+
+        return $unique;
     }
 
     private function findBoundary(string $text, int $start, int $targetEnd, int $chunkSize): int

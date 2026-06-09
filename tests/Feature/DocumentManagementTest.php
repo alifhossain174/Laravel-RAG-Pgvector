@@ -6,11 +6,15 @@ use App\Jobs\ProcessDocumentJob;
 use App\Jobs\GenerateDocumentEmbeddingsJob;
 use App\Models\Document;
 use App\Models\User;
+use App\Services\DocumentChunker;
+use App\Services\OcrService;
 use App\Services\PdfExtractorService;
+use App\Services\TextExtractionDecisionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Tests\TestCase;
 
 class DocumentManagementTest extends TestCase
@@ -72,7 +76,9 @@ class DocumentManagementTest extends TestCase
 
         (new ProcessDocumentJob($document->id))->handle(
             app(PdfExtractorService::class),
-            app(\App\Services\DocumentChunker::class)
+            app(DocumentChunker::class),
+            app(TextExtractionDecisionService::class),
+            app(OcrService::class)
         );
 
         $document->refresh();
@@ -85,6 +91,72 @@ class DocumentManagementTest extends TestCase
             'chunk_index' => 1,
             'page_start' => 1,
         ]);
+        Queue::assertPushed(GenerateDocumentEmbeddingsJob::class, fn (GenerateDocumentEmbeddingsJob $job) => $job->documentId === $document->id);
+    }
+
+    public function test_process_document_job_uses_ocr_fallback_for_scanned_pdf(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+
+        $user = User::factory()->create();
+        $path = 'documents/'.$user->id.'/scan.pdf';
+        Storage::disk('local')->put($path, 'PDF bytes');
+
+        $document = $user->documents()->create([
+            'title' => 'Scanned Policy',
+            'original_filename' => 'scan.pdf',
+            'file_path' => $path,
+            'status' => 'uploaded',
+        ]);
+
+        $this->app->instance(PdfExtractorService::class, new class extends PdfExtractorService {
+            public function extractPages(string $absoluteFilePath): array
+            {
+                throw new RuntimeException('PDF text extraction returned empty content.');
+            }
+        });
+
+        $this->app->instance(OcrService::class, new class extends OcrService {
+            public function __construct()
+            {
+            }
+
+            public function enabled(): bool
+            {
+                return true;
+            }
+
+            public function extractPages(string $absolutePdfPath): array
+            {
+                return [
+                    [
+                        'page' => 1,
+                        'content' => str_repeat('This scanned policy text came from OCR. ', 80),
+                        'metadata' => [
+                            'page' => 1,
+                            'extraction_method' => 'ocr',
+                        ],
+                    ],
+                ];
+            }
+        });
+
+        (new ProcessDocumentJob($document->id))->handle(
+            app(PdfExtractorService::class),
+            app(DocumentChunker::class),
+            app(TextExtractionDecisionService::class),
+            app(OcrService::class)
+        );
+
+        $document->refresh();
+        $chunk = $document->chunks()->firstOrFail();
+
+        $this->assertSame('chunked', $document->status);
+        $this->assertSame(1, $document->total_pages);
+        $this->assertSame('pdf_ocr', $chunk->metadata['source']);
+        $this->assertSame(['ocr'], $chunk->metadata['extraction_methods']);
+        $this->assertSame('ocr', $chunk->metadata['pages'][0]['extraction_method']);
         Queue::assertPushed(GenerateDocumentEmbeddingsJob::class, fn (GenerateDocumentEmbeddingsJob $job) => $job->documentId === $document->id);
     }
 

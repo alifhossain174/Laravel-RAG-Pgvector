@@ -37,7 +37,14 @@ class RagRetrievalService
 
         $queryEmbedding = $this->embeddings->embedQuery($question);
         $queryVector = GenerateDocumentEmbeddingsJob::formatVectorForPgvector($queryEmbedding);
+        $maxDistance = $this->maxDistance();
 
+        /*
+         * Keep this in pgvector's index-friendly nearest-neighbor shape:
+         * ORDER BY embedding <=> query_vector ASC with a bounded LIMIT.
+         * The optional max-distance cutoff is applied after this scan so the
+         * HNSW cosine index can still be considered for the ORDER BY operator.
+         */
         $query = DB::table('document_chunks as dc')
             ->join('documents as d', 'd.id', '=', 'dc.document_id')
             ->whereNotNull('dc.embedding')
@@ -57,14 +64,9 @@ class RagRetrievalService
             ->orderByRaw('dc.embedding <=> ?::vector', [$queryVector])
             ->limit($this->candidateLimit($limit));
 
-        $maxDistance = $this->maxDistance();
-
-        if ($maxDistance !== null) {
-            $query->whereRaw('(dc.embedding <=> ?::vector) <= ?', [$queryVector, $maxDistance]);
-        }
-
         $candidates = $query
             ->get()
+            ->reject(fn (object $row): bool => $maxDistance !== null && (float) $row->distance > $maxDistance)
             ->map(fn (object $row): array => [
                 'chunk_id' => (int) $row->chunk_id,
                 'document_id' => (int) $row->document_id,

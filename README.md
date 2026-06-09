@@ -12,6 +12,7 @@ The project is built as a practical Retrieval-Augmented Generation application: 
 - Private PDF upload flow with per-user document ownership
 - Background PDF processing with queued jobs
 - Poppler/pdftotext-based text extraction
+- OCR fallback for scanned and image-based PDFs using Tesseract and Poppler `pdftoppm`
 - Page-aware document chunking with `page_start` and `page_end`
 - Gemini embedding generation for document chunks
 - PostgreSQL pgvector storage and similarity retrieval
@@ -36,7 +37,8 @@ The project is built as a practical Retrieval-Augmented Generation application: 
 - PostgreSQL
 - pgvector
 - Spatie PDF To Text
-- Poppler / `pdftotext`
+- Poppler / `pdftotext` / `pdftoppm`
+- Tesseract OCR
 
 **AI and Retrieval**
 
@@ -65,17 +67,19 @@ The project is built as a practical Retrieval-Augmented Generation application: 
 2. The user uploads a PDF from the document upload page.
 3. The PDF is stored in private Laravel storage.
 4. `ProcessDocumentJob` extracts text from the PDF using Poppler.
-5. Extracted text is cleaned and split into page-aware chunks.
-6. Chunks are saved to `document_chunks`.
-7. `GenerateDocumentEmbeddingsJob` generates Gemini embeddings for each chunk.
-8. Embeddings are stored in PostgreSQL using pgvector.
-9. The document becomes `ready`.
-10. The user creates a conversation scoped to selected documents or all ready documents.
-11. When the user asks a question, the app embeds the question.
-12. `RagRetrievalService` retrieves the most relevant chunks from the allowed document scope.
-13. `LlmService` asks Gemini to answer using only the retrieved context.
-14. The assistant response and citation metadata are saved to the conversation.
-15. The chat UI updates the answer, conversation metadata, and Gemini quota card without a full page reload.
+5. `TextExtractionDecisionService` checks whether the native text is usable.
+6. If needed, OCR converts PDF pages with `pdftoppm` and extracts text with Tesseract.
+7. Extracted text is cleaned and split into page-aware chunks.
+8. Chunks are saved to `document_chunks`.
+9. `GenerateDocumentEmbeddingsJob` generates Gemini embeddings for each chunk.
+10. Embeddings are stored in PostgreSQL using pgvector.
+11. The document becomes `ready`.
+12. The user creates a conversation scoped to selected documents or all ready documents.
+13. When the user asks a question, the app embeds the question.
+14. `RagRetrievalService` retrieves the most relevant chunks from the allowed document scope.
+15. `LlmService` asks Gemini to answer using only the retrieved context.
+16. The assistant response and citation metadata are saved to the conversation.
+17. The chat UI updates the answer, conversation metadata, and Gemini quota card without a full page reload.
 
 ## RAG Architecture
 
@@ -92,6 +96,15 @@ ProcessDocumentJob
    |       - runs pdftotext
    |       - cleans PDF artifacts
    |       - splits text by page
+   |
+   +--> TextExtractionDecisionService
+   |       - checks extracted text quality
+   |       - detects empty, image-only, or low-density text
+   |
+   +--> OcrService
+   |       - used only when native text is insufficient
+   |       - asks PdfImageConverterService to run pdftoppm
+   |       - runs Tesseract OCR per page
    |
    +--> DocumentChunker
            - creates overlapping chunks
@@ -201,6 +214,9 @@ Messages store user and assistant chat history. Assistant messages include citat
 ## Important Services
 
 - `PdfExtractorService` - extracts and cleans PDF text with page awareness.
+- `TextExtractionDecisionService` - decides whether native PDF text is sufficient or OCR is required.
+- `PdfImageConverterService` - converts PDF pages to temporary PNG images with Poppler `pdftoppm`.
+- `OcrService` - runs Tesseract OCR per converted page and preserves page metadata.
 - `DocumentChunker` - creates overlapping chunks and maps them to source pages.
 - `EmbeddingService` - creates Gemini embeddings and validates vector dimensions.
 - `GeminiRateLimitService` - tracks shared Gemini request and token limits in cache.
@@ -226,7 +242,7 @@ Important caveat: the app can only track Gemini calls made through this Laravel 
 
 ## Background Jobs
 
-- `ProcessDocumentJob` - extracts PDF text, chunks it, stores chunks, and updates document status.
+- `ProcessDocumentJob` - extracts PDF text, falls back to OCR when needed, chunks it, stores chunks, and updates document status.
 - `GenerateDocumentEmbeddingsJob` - generates embeddings for chunks and marks documents ready.
 
 The jobs are intentionally separated so PDF processing and API-based embedding generation remain isolated and easier to retry.
@@ -303,7 +319,8 @@ The interface is designed as a focused SaaS dashboard:
 - Node.js and npm
 - PostgreSQL
 - pgvector extension enabled
-- Poppler installed with `pdftotext` available
+- Poppler installed with `pdftotext` and `pdftoppm` available
+- Tesseract OCR installed for scanned PDFs
 - Gemini API key
 - SMTP credentials for email verification and password reset emails
 
@@ -370,6 +387,15 @@ AI and RAG configuration:
 
 ```env
 PDFTOTEXT_PATH=
+PDFTOPPM_PATH=
+OCR_ENABLED=true
+OCR_LANGUAGE=eng
+OCR_MIN_TEXT_CHARACTERS=20
+OCR_MIN_TEXT_DENSITY_PER_PAGE=10
+OCR_PDF_DPI=200
+PDFTOPPM_TIMEOUT=300
+TESSERACT_PATH=
+TESSERACT_TIMEOUT=120
 EMBEDDING_PROVIDER=gemini
 LLM_PROVIDER=gemini
 GEMINI_API_KEY=
@@ -407,7 +433,9 @@ MAIL_FROM_ADDRESS=your_email@example.com
 MAIL_FROM_NAME="${APP_NAME}"
 ```
 
-If `PDFTOTEXT_PATH` is empty, the app lets Spatie/Poppler resolve `pdftotext` from the system path.
+If `PDFTOTEXT_PATH`, `PDFTOPPM_PATH`, or `TESSERACT_PATH` is empty, the app resolves the binary from the system path. On Windows/XAMPP, setting explicit `.exe` paths is usually more reliable.
+
+See [Linux Deployment Guide](docs/linux-deployment-guide.md) for production server setup, including PostgreSQL, pgvector, Poppler, Tesseract OCR, queues, and Nginx.
 
 The Gemini rate-limit defaults above match the free-tier limits used by this project during development. Check your Gemini dashboard and update these values if Google changes your project limits or if you switch to a paid tier.
 
@@ -421,7 +449,7 @@ The Gemini rate-limit defaults above match the free-tier limits used by this pro
 php artisan queue:work
 ```
 
-4. Upload a text-based PDF.
+4. Upload a text-based PDF or scanned PDF.
 5. Wait until the document status becomes `Ready`.
 6. Open DocuMind Chat.
 7. Create a conversation with one or more ready documents.
@@ -474,8 +502,8 @@ LIMIT 10;
 
 ## Known Limitations
 
-- Text-based PDFs work best.
-- Scanned PDFs require OCR, which is not implemented.
+- Text-based PDFs are faster because OCR is skipped when native extraction is sufficient.
+- OCR quality depends on scan resolution, document language, rotation, and Tesseract language data.
 - Tables, charts, and graph-heavy PDFs may lose structure during text extraction.
 - Retrieval quality depends on extracted text quality and chunk boundaries.
 - Streaming responses are not implemented.
@@ -485,7 +513,6 @@ LIMIT 10;
 
 ## Future Improvements
 
-- OCR support for scanned PDFs
 - Streaming chat responses
 - Per-user quota allocation on top of the shared Gemini project quota
 - Organization/team workspaces

@@ -4,7 +4,9 @@ namespace App\Jobs;
 
 use App\Models\Document;
 use App\Services\DocumentChunker;
+use App\Services\OcrService;
 use App\Services\PdfExtractorService;
+use App\Services\TextExtractionDecisionService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -28,7 +30,12 @@ class ProcessDocumentJob implements ShouldQueue
     {
     }
 
-    public function handle(PdfExtractorService $extractor, DocumentChunker $chunker): void
+    public function handle(
+        PdfExtractorService $extractor,
+        DocumentChunker $chunker,
+        TextExtractionDecisionService $decisionService,
+        OcrService $ocr
+    ): void
     {
         $document = Document::query()->find($this->documentId);
 
@@ -55,11 +62,40 @@ class ProcessDocumentJob implements ShouldQueue
                 throw new \RuntimeException('Stored PDF file was not found.');
             }
 
-            $pages = $extractor->extractPages($absolutePath);
-            $text = trim(implode("\n\n", array_column($pages, 'content')));
+            $nativeExtractionException = null;
+            $pages = [];
 
-            if (strlen(trim($text)) < 20) {
-                throw new \RuntimeException('Extracted PDF text is empty or too short to chunk.');
+            try {
+                $pages = $extractor->extractPages($absolutePath);
+            } catch (Throwable $exception) {
+                $nativeExtractionException = $exception;
+
+                Log::warning('Native PDF text extraction failed; checking OCR fallback.', [
+                    'document_id' => $document->id,
+                    'message' => $exception->getMessage(),
+                ]);
+            }
+
+            $decision = $decisionService->decide($pages, $nativeExtractionException);
+
+            if ($decision['requires_ocr']) {
+                if (! $ocr->enabled()) {
+                    throw $nativeExtractionException ?: new \RuntimeException($decision['message']);
+                }
+
+                Log::info('Document requires OCR fallback after native text extraction.', [
+                    'document_id' => $document->id,
+                    'reason' => $decision['reason'],
+                    'character_count' => $decision['character_count'],
+                    'page_count' => $decision['page_count'],
+                ]);
+
+                $pages = $ocr->extractPages($absolutePath);
+                $ocrDecision = $decisionService->decide($pages);
+
+                if ($ocrDecision['requires_ocr']) {
+                    throw new \RuntimeException('OCR completed but extracted text is still too short to chunk.');
+                }
             }
 
             $chunks = $chunker->chunkPages($pages);

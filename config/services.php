@@ -39,6 +39,18 @@ return [
         'binary' => env('PDFTOTEXT_PATH'),
     ],
 
+    'ocr' => [
+        'enabled' => env('OCR_ENABLED', true),
+        'tesseract_binary' => env('TESSERACT_PATH'),
+        'pdftoppm_binary' => env('PDFTOPPM_PATH'),
+        'language' => env('OCR_LANGUAGE', 'eng'),
+        'minimum_text_characters' => env('OCR_MIN_TEXT_CHARACTERS', 20),
+        'minimum_text_density_per_page' => env('OCR_MIN_TEXT_DENSITY_PER_PAGE', 10),
+        'pdf_dpi' => env('OCR_PDF_DPI', 200),
+        'pdftoppm_timeout' => env('PDFTOPPM_TIMEOUT', 300),
+        'tesseract_timeout' => env('TESSERACT_TIMEOUT', 120),
+    ],
+
     'embedding' => [
         'provider' => env('EMBEDDING_PROVIDER', 'gemini'),
     ],

@@ -35,6 +35,10 @@ class PdfExtractorService
             $pages[] = [
                 'page' => $index + 1,
                 'content' => $content,
+                'metadata' => [
+                    'page' => $index + 1,
+                    'extraction_method' => 'native',
+                ],
             ];
         }
 
