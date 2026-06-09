@@ -25,7 +25,7 @@
             <div class="flex items-center gap-3">
                 @auth
                     <a href="{{ route('documents.create') }}" class="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-teal-200 hover:bg-teal-700">
-                        Upload PDF
+                        Upload document
                     </a>
                 @else
                     <a href="{{ route('login') }}" class="hidden text-sm font-semibold text-slate-700 hover:text-teal-700 sm:inline">Log in</a>

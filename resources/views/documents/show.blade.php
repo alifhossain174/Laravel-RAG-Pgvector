@@ -18,7 +18,7 @@
             <p class="mt-2 text-sm text-slate-600">Document details, processing status, and chunk previews.</p>
         </div>
         <div class="flex flex-col gap-3 sm:flex-row">
-            <form method="POST" action="{{ route('documents.destroy', $document) }}" onsubmit="return confirm('Delete this document and its stored PDF?');">
+            <form method="POST" action="{{ route('documents.destroy', $document) }}" onsubmit="return confirm('Delete this document and its stored file?');">
                 @csrf
                 @method('DELETE')
                 <button type="submit" class="w-full rounded-lg border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 sm:w-auto">
@@ -118,7 +118,7 @@
             @forelse ($chunks as $chunk)
                 <article class="p-5">
                     @php
-                        $pageLabel = 'Pages -';
+                        $pageLabel = 'Document source';
 
                         if ($chunk->page_start && $chunk->page_end && $chunk->page_start === $chunk->page_end) {
                             $pageLabel = 'Page '.$chunk->page_start;

@@ -91,7 +91,7 @@ TEXT;
     private function pageLabel(mixed $pageStart, mixed $pageEnd): string
     {
         if ($pageStart === null && $pageEnd === null) {
-            return 'Page unknown';
+            return 'Document source';
         }
 
         if ($pageStart !== null && ($pageEnd === null || (int) $pageStart === (int) $pageEnd)) {

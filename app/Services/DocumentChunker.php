@@ -60,6 +60,7 @@ class DocumentChunker
                         'chunk_size' => $chunkSize,
                         'chunk_overlap' => $overlap,
                         'source' => $this->sourceForMethods($extractionMethods),
+                        'source_type' => $this->sourceTypeForPages($sourcePages, $extractionMethods),
                         'extraction_methods' => $extractionMethods,
                         'pages' => $sourcePages,
                     ],
@@ -99,20 +100,18 @@ class DocumentChunker
             $text .= $content;
             $end = mb_strlen($text, 'UTF-8');
 
-            if (isset($page['page']) && is_numeric($page['page'])) {
-                $pageNumber = (int) $page['page'];
-                $metadata = is_array($page['metadata'] ?? null) ? $page['metadata'] : [];
+            $pageNumber = isset($page['page']) && is_numeric($page['page']) ? (int) $page['page'] : null;
+            $metadata = is_array($page['metadata'] ?? null) ? $page['metadata'] : [];
 
-                $pageRanges[] = [
+            $pageRanges[] = [
+                'page' => $pageNumber,
+                'start' => $start,
+                'end' => $end,
+                'metadata' => array_merge([
                     'page' => $pageNumber,
-                    'start' => $start,
-                    'end' => $end,
-                    'metadata' => array_merge([
-                        'page' => $pageNumber,
-                        'extraction_method' => 'native',
-                    ], $metadata),
-                ];
-            }
+                    'extraction_method' => $pageNumber === null ? 'document_text_extraction' : 'native',
+                ], $metadata),
+            ];
         }
 
         return [$text, $pageRanges];
@@ -128,18 +127,25 @@ class DocumentChunker
                 continue;
             }
 
-            $pages[] = $range['page'];
+            if ($range['page'] !== null) {
+                $pages[] = $range['page'];
+            }
+
             $sourcePages[] = $range['metadata'] ?? [
                 'page' => $range['page'],
                 'extraction_method' => 'native',
             ];
         }
 
-        if ($pages === []) {
+        if ($sourcePages === []) {
             return [null, null, []];
         }
 
-        return [min($pages), max($pages), $this->uniqueSourcePages($sourcePages)];
+        return [
+            $pages === [] ? null : min($pages),
+            $pages === [] ? null : max($pages),
+            $this->uniqueSourcePages($sourcePages),
+        ];
     }
 
     private function extractionMethods(array $sourcePages): array
@@ -167,7 +173,50 @@ class DocumentChunker
             return 'pdf_mixed_extraction';
         }
 
+        if ($methods === ['word_text_extraction']) {
+            return 'word_text_extraction';
+        }
+
+        if (in_array('word_text_extraction', $methods, true)) {
+            return 'mixed_document_extraction';
+        }
+
+        if ($methods === ['document_text_extraction']) {
+            return 'document_text_extraction';
+        }
+
         return 'pdf_text_extraction';
+    }
+
+    private function sourceTypeForPages(array $sourcePages, array $methods): string
+    {
+        $sourceTypes = [];
+
+        foreach ($sourcePages as $page) {
+            $sourceType = (string) ($page['source_type'] ?? '');
+
+            if ($sourceType !== '' && ! in_array($sourceType, $sourceTypes, true)) {
+                $sourceTypes[] = $sourceType;
+            }
+        }
+
+        if (count($sourceTypes) === 1) {
+            return $sourceTypes[0];
+        }
+
+        if (count($sourceTypes) > 1) {
+            return 'mixed';
+        }
+
+        if (in_array('word_text_extraction', $methods, true)) {
+            return 'docx';
+        }
+
+        if (in_array('native', $methods, true) || in_array('ocr', $methods, true)) {
+            return 'pdf';
+        }
+
+        return 'document';
     }
 
     private function uniqueSourcePages(array $sourcePages): array
@@ -178,17 +227,29 @@ class DocumentChunker
         foreach ($sourcePages as $page) {
             $pageNumber = $page['page'] ?? null;
             $method = (string) ($page['extraction_method'] ?? 'native');
-            $key = $pageNumber.'|'.$method;
+            $sourceType = (string) ($page['source_type'] ?? '');
+            $section = (string) ($page['section'] ?? '');
+            $key = $pageNumber.'|'.$method.'|'.$sourceType.'|'.$section;
 
             if (isset($seen[$key])) {
                 continue;
             }
 
             $seen[$key] = true;
-            $unique[] = [
+            $source = [
                 'page' => is_numeric($pageNumber) ? (int) $pageNumber : null,
                 'extraction_method' => $method,
             ];
+
+            if ($sourceType !== '') {
+                $source['source_type'] = $sourceType;
+            }
+
+            if ($section !== '') {
+                $source['section'] = $section;
+            }
+
+            $unique[] = $source;
         }
 
         return $unique;

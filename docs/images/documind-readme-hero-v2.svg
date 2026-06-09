@@ -41,7 +41,7 @@
 
       <text x="0" y="124" class="h1">Laravel <tspan class="brandText">RAG</tspan></text>
       <text x="0" y="178" class="h1">Document Assistant</text>
-      <text x="0" y="221" class="body">Upload PDFs, retrieve document context,</text>
+      <text x="0" y="221" class="body">Upload documents, retrieve context,</text>
       <text x="0" y="250" class="body">and answer with source citations.</text>
     </g>
 
@@ -49,7 +49,7 @@
       <g>
         <rect x="0" y="0" width="42" height="42" rx="11" fill="#ecfeff" stroke="#99f6e4"/>
         <path d="M14 26h14M17 14h9l5 5v13H17z" fill="none" stroke="#0f766e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <text x="58" y="17" class="label">Private PDF Upload</text>
+        <text x="58" y="17" class="label">Private Document Upload</text>
         <text x="58" y="37" class="small">User-owned storage and protected workflows</text>
       </g>
       <g transform="translate(0 70)">
@@ -152,7 +152,7 @@
 
     <g transform="translate(82 604)">
       <rect x="0" y="0" width="132" height="48" rx="10" class="panel" filter="url(#softShadow)"/>
-      <text x="66" y="30" text-anchor="middle" font-size="13" font-weight="850" fill="#0f172a">PDF Upload</text>
+      <text x="66" y="30" text-anchor="middle" font-size="13" font-weight="850" fill="#0f172a">Document Upload</text>
       <text x="152" y="30" font-size="25" fill="#475569">-></text>
       <rect x="196" y="0" width="132" height="48" rx="10" class="panel" filter="url(#softShadow)"/>
       <text x="262" y="30" text-anchor="middle" font-size="13" font-weight="850" fill="#0f172a">Chunking</text>

@@ -209,7 +209,7 @@
                                 <input name="scope" value="selected" type="radio" class="mt-1 size-4 border-slate-300 text-teal-600 focus:ring-teal-500" @checked(old('scope', \App\Models\Conversation::SCOPE_SELECTED) === \App\Models\Conversation::SCOPE_SELECTED)>
                                 <span>
                                     <span class="block text-sm font-semibold text-slate-950">Selected documents</span>
-                                    <span class="mt-1 block text-sm text-slate-500">Pick one or more ready PDFs.</span>
+                                    <span class="mt-1 block text-sm text-slate-500">Pick one or more ready documents.</span>
                                 </span>
                             </label>
 
@@ -246,7 +246,7 @@
                                     </label>
                                 @empty
                                     <div class="px-4 py-6 text-sm text-slate-500">
-                                        No ready documents yet. Upload and process PDFs before creating a document-scoped conversation.
+                                        No ready documents yet. Upload and process documents before creating a document-scoped conversation.
                                     </div>
                                 @endforelse
                             </div>

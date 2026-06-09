@@ -1,6 +1,6 @@
 # Linux Deployment Guide
 
-This guide prepares a Linux server to run DocuMind in production with PDF extraction, scanned-PDF OCR, queues, Gemini embeddings, PostgreSQL, and pgvector.
+This guide prepares a Linux server to run DocuMind in production with PDF and DOCX extraction, scanned-PDF OCR, queues, Gemini embeddings, PostgreSQL, and pgvector.
 
 The commands below target Ubuntu/Debian-style servers. Adjust package names if you deploy on another distribution.
 
@@ -19,7 +19,7 @@ Install base tools:
 sudo apt install -y git unzip curl ca-certificates software-properties-common
 ```
 
-Install PHP and common Laravel extensions:
+Install PHP and common Laravel extensions. The `php-zip`, `php-xml`, and `php-mbstring` packages are required for DOCX extraction with PhpOffice/PHPWord:
 
 ```bash
 sudo apt install -y php php-cli php-fpm php-pgsql php-mbstring php-xml php-curl php-zip php-bcmath php-intl
@@ -40,7 +40,7 @@ node --version
 npm --version
 ```
 
-Install Poppler and Tesseract OCR:
+Install Poppler and Tesseract OCR for PDF extraction and scanned-PDF fallback:
 
 ```bash
 sudo apt install -y poppler-utils tesseract-ocr tesseract-ocr-eng
@@ -104,6 +104,8 @@ Install PHP dependencies:
 ```bash
 composer install --no-dev --optimize-autoloader
 ```
+
+This installs the Laravel dependencies, including PhpOffice/PHPWord for DOCX text extraction.
 
 Install and build frontend assets:
 
@@ -174,6 +176,8 @@ which tesseract
 
 If the paths differ, update `.env` with the real paths.
 
+For Windows/XAMPP development, enable the PHP `zip`, `xml`, and `mbstring` extensions in `php.ini` if they are disabled, then restart Apache and the queue worker. Keep explicit `.exe` paths for Poppler and Tesseract in `.env` when they are not on the Windows `PATH`.
+
 ## 5. Permissions
 
 Laravel needs write access to `storage` and `bootstrap/cache`:
@@ -183,7 +187,7 @@ sudo chown -R www-data:www-data storage bootstrap/cache
 sudo chmod -R ug+rwX storage bootstrap/cache
 ```
 
-Private uploaded PDFs are stored under Laravel's local storage disk, not in the public web root.
+Private uploaded documents are stored under Laravel's local storage disk, not in the public web root.
 
 ## 6. Run Migrations And Optimize
 
@@ -337,6 +341,18 @@ Expected output:
 yes
 ```
 
+Check Composer autoload can see PHPWord:
+
+```bash
+php artisan tinker --execute="echo class_exists('PhpOffice\\PhpWord\\IOFactory') ? 'yes' : 'no';"
+```
+
+Expected output:
+
+```text
+yes
+```
+
 Check queue status:
 
 ```bash
@@ -349,16 +365,19 @@ tail -f storage/logs/worker.log
 1. Register a user.
 2. Verify the user's email.
 3. Upload a text-based PDF and confirm it becomes `Ready`.
-4. Upload a scanned PDF and confirm OCR processing creates chunks.
-5. Create a chat conversation scoped to the document.
-6. Ask a question that can be answered from the PDF.
-7. Confirm the answer includes source citations.
+4. Upload a DOCX and confirm text extraction creates chunks.
+5. Upload a scanned PDF and confirm OCR processing creates chunks.
+6. Create a chat conversation scoped to the document.
+7. Ask a question that can be answered from the document.
+8. Confirm the answer includes source citations.
 
 ## Troubleshooting
 
 If OCR says `tesseract` was not found, set `TESSERACT_PATH=/usr/bin/tesseract`, run `php artisan optimize:clear`, then restart the queue worker.
 
 If Poppler fails, confirm both `pdftotext` and `pdftoppm` are installed with `poppler-utils`.
+
+If DOCX extraction fails with missing class or zip/xml errors, run `composer install --no-dev --optimize-autoloader`, confirm `php-zip`, `php-xml`, and `php-mbstring` are installed, then restart PHP-FPM and queue workers.
 
 If migrations fail on `vector`, confirm pgvector is installed and the database has:
 

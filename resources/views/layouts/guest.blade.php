@@ -19,7 +19,7 @@
             <div class="flex flex-1 items-center">
                 <div class="max-w-xl">
                     <p class="text-sm font-semibold uppercase tracking-[0.2em] text-teal-700">Document intelligence</p>
-                    <h1 class="mt-5 text-4xl font-semibold tracking-tight text-slate-950">Source-backed answers for every PDF workspace.</h1>
+                    <h1 class="mt-5 text-4xl font-semibold tracking-tight text-slate-950">Source-backed answers for every document workspace.</h1>
                     <p class="mt-5 text-base leading-7 text-slate-600">
                         Sign in to manage uploads, review processing status, and ask document-specific questions with citations.
                     </p>

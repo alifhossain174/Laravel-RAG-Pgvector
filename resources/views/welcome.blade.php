@@ -2,12 +2,12 @@
     $isMarketing = true;
     $title = 'DocuMind';
     $features = [
-        ['title' => 'PDF Upload', 'body' => 'Bring contracts, manuals, reports, policies, and research papers into one searchable workspace.'],
+        ['title' => 'Document Upload', 'body' => 'Bring contracts, manuals, reports, policies, and research papers into one searchable workspace.'],
         ['title' => 'AI Question Answering', 'body' => 'Ask plain-language questions and receive concise answers drafted from the selected document.'],
         ['title' => 'Source-based Answers', 'body' => 'Every response can point back to the page and excerpt that informed the answer.'],
-        ['title' => 'Secure Document Storage', 'body' => 'Keep uploaded PDFs private while conversations stay scoped to the documents you choose.'],
+        ['title' => 'Secure Document Storage', 'body' => 'Keep uploaded documents private while conversations stay scoped to the documents you choose.'],
     ];
-    $steps = ['Upload PDF', 'System processes document', 'Ask questions', 'Get answers with sources'];
+    $steps = ['Upload document', 'System processes document', 'Ask questions', 'Get answers with sources'];
 @endphp
 
 @extends('layouts.app')
@@ -21,7 +21,7 @@
                     DocuMind
                 </h1>
                 <p class="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
-                    DocuMind turns uploaded PDFs into source-backed answers with page citations and document-scoped conversations.
+                    DocuMind turns uploaded documents into source-backed answers with citations and document-scoped conversations.
                 </p>
                 <div class="mt-8 flex flex-col gap-3 sm:flex-row">
                     <a href="{{ route('documents.create') }}" class="rounded-lg bg-teal-600 px-5 py-3 text-center text-sm font-semibold text-white shadow-sm shadow-teal-200 hover:bg-teal-700">
@@ -37,7 +37,7 @@
                 <div class="rounded-lg bg-white p-5 shadow-sm">
                     <div class="flex items-center justify-between border-b border-slate-200 pb-4">
                         <div>
-                            <p class="text-sm font-semibold text-slate-950">Selected PDF</p>
+                            <p class="text-sm font-semibold text-slate-950">Selected document</p>
                             <p class="mt-1 text-xs text-slate-500">Ready for chat</p>
                         </div>
                         @include('partials.status-badge', ['status' => 'ready'])
@@ -49,7 +49,7 @@
                         <div class="max-w-[88%] rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-700">
                             Purchases above $50,000 require department head approval and finance review before vendor onboarding.
                             <div class="mt-3 rounded-md bg-teal-50 p-3 text-xs text-teal-800">
-                                Source: selected PDF, page 8
+                                Source: selected document, page 8
                             </div>
                         </div>
                     </div>
@@ -78,7 +78,7 @@
                     <p class="text-sm font-semibold uppercase tracking-[0.2em] text-teal-700">Workflow</p>
                     <h2 class="mt-3 text-2xl font-semibold tracking-tight text-slate-950">From uploaded file to cited answer</h2>
                 </div>
-                <p class="max-w-xl text-sm leading-6 text-slate-600">Uploaded PDFs are extracted, chunked, embedded, and searched so answers can stay grounded in source material.</p>
+                <p class="max-w-xl text-sm leading-6 text-slate-600">Uploaded documents are extracted, chunked, embedded, and searched so answers can stay grounded in source material.</p>
             </div>
 
             <div class="mt-8 grid gap-4 md:grid-cols-4">
@@ -97,11 +97,11 @@
             <div class="lg:col-span-2">
                 <p class="text-sm font-semibold uppercase tracking-[0.2em] text-teal-300">Workspace ready</p>
                 <h2 class="mt-3 text-2xl font-semibold tracking-tight">Built for private document conversations</h2>
-                <p class="mt-4 max-w-2xl text-sm leading-6 text-slate-300">Upload PDFs, create document-scoped conversations, and ask questions with retrieved source citations.</p>
+                <p class="mt-4 max-w-2xl text-sm leading-6 text-slate-300">Upload documents, create document-scoped conversations, and ask questions with retrieved source citations.</p>
             </div>
             <div class="rounded-lg border border-white/10 bg-white/5 p-5">
                 <p class="text-sm text-slate-300">DocuMind workflow</p>
-                <p class="mt-3 text-3xl font-semibold">PDF to answer</p>
+                <p class="mt-3 text-3xl font-semibold">Document to answer</p>
                 <p class="mt-3 text-sm text-slate-300">Private uploads, page-aware chunks, Gemini embeddings, pgvector retrieval, and cited answers.</p>
             </div>
         </div>

@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class DocumentController extends Controller
@@ -27,13 +28,29 @@ class DocumentController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $file = $request->file('document');
+
+        if ($file && strtolower($file->getClientOriginalExtension()) === 'doc') {
+            throw ValidationException::withMessages([
+                'document' => 'Legacy .doc files are not supported yet. Please upload PDF or DOCX.',
+            ]);
+        }
+
         $validated = $request->validate([
             'title' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'document' => ['required', 'file', 'mimes:pdf', 'mimetypes:application/pdf', 'max:20480'],
+            'document' => [
+                'required',
+                'file',
+                'mimes:pdf,docx',
+                'mimetypes:application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'max:20480',
+            ],
+        ], [
+            'document.mimes' => 'Please upload a PDF or DOCX document.',
+            'document.mimetypes' => 'Please upload a PDF or DOCX document.',
         ]);
 
-        $file = $request->file('document');
         $path = $file->store('documents/'.$request->user()->id, 'local');
 
         $document = $request->user()->documents()->create([

@@ -10,7 +10,7 @@ class ProcessDocumentCommand extends Command
 {
     protected $signature = 'documents:process {document}';
 
-    protected $description = 'Process a PDF document by extracting text and creating chunks.';
+    protected $description = 'Process a document by extracting text and creating chunks.';
 
     public function handle(): int
     {

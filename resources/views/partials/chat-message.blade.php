@@ -33,7 +33,7 @@
                         @php
                             $pageStart = $source['page_start'] ?? null;
                             $pageEnd = $source['page_end'] ?? null;
-                            $pageLabel = 'Page unknown';
+                            $pageLabel = 'Document source';
 
                             if ($pageStart && $pageEnd && (int) $pageStart === (int) $pageEnd) {
                                 $pageLabel = 'Page '.$pageStart;

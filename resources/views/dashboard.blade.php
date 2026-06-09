@@ -1,7 +1,7 @@
 @php
     $title = 'Dashboard';
     $stats = [
-        ['label' => 'Total Documents', 'value' => $totalDocuments, 'meta' => 'Uploads', 'helper' => 'PDFs uploaded by you.', 'tone' => 'teal'],
+        ['label' => 'Total Documents', 'value' => $totalDocuments, 'meta' => 'Uploads', 'helper' => 'Documents uploaded by you.', 'tone' => 'teal'],
         ['label' => 'Ready Documents', 'value' => $readyDocuments, 'meta' => 'Ready', 'helper' => 'Documents ready for grounded chat answers.', 'tone' => 'emerald'],
         ['label' => 'Processing or Uploaded', 'value' => $pendingDocuments, 'meta' => 'Queue', 'helper' => 'Documents waiting for extraction, chunks, or embeddings.', 'tone' => 'amber'],
         ['label' => 'Total Questions Asked', 'value' => $totalQuestions, 'meta' => 'Chat', 'helper' => 'Questions submitted across your conversations.', 'tone' => 'cyan'],
@@ -64,7 +64,7 @@
                     <tr>
                         <td colspan="5" class="px-5 py-12 text-center">
                             <p class="font-semibold text-slate-950">No documents yet</p>
-                            <p class="mt-2 text-sm text-slate-500">Upload your first PDF to start building a searchable knowledge base.</p>
+                            <p class="mt-2 text-sm text-slate-500">Upload your first document to start building a searchable knowledge base.</p>
                         </td>
                     </tr>
                 @endforelse

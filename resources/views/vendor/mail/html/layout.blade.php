@@ -46,7 +46,7 @@ text-align: center !important;
 <td class="brand-panel">
 <p class="eyebrow">Secure document workspace</p>
 <h1>Source-backed answers start with trusted access.</h1>
-<p class="lede">DocuMind keeps your PDF library, processing status, and document conversations protected behind verified account actions.</p>
+<p class="lede">DocuMind keeps your document library, processing status, and document conversations protected behind verified account actions.</p>
 </td>
 </tr>
 <tr>

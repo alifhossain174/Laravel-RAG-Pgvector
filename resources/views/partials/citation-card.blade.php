@@ -1,6 +1,6 @@
 @php
     $documentTitle = $documentTitle ?? 'Document source';
-    $pageLabel = $pageLabel ?? 'Page unknown';
+    $pageLabel = $pageLabel ?? 'Document source';
     $chunkPreview = $chunkPreview ?? 'Source excerpt unavailable.';
     $relevanceScore = $relevanceScore ?? 'N/A';
     $showScore = $showScore ?? true;

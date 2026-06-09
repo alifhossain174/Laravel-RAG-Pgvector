@@ -1,18 +1,19 @@
-# DocuMind - AI PDF Document Assistant
+# DocuMind - AI Document Assistant
 
 ![DocuMind Laravel RAG Document Assistant](docs/images/documind-readme-hero-v2.svg)
 
-DocuMind is a full-stack Laravel application for uploading PDFs, processing them into searchable chunks, storing vector embeddings with PostgreSQL pgvector, and answering document-scoped questions with source citations.
+DocuMind is a full-stack Laravel application for uploading PDF and DOCX documents, processing them into searchable chunks, storing vector embeddings with PostgreSQL pgvector, and answering document-scoped questions with source citations.
 
-The project is built as a practical Retrieval-Augmented Generation application: users verify their email, upload private PDFs, wait for background processing, create conversations around one or more documents, and ask questions that are answered only from the selected document context.
+The project is built as a practical Retrieval-Augmented Generation application: users verify their email, upload private documents, wait for background processing, create conversations around one or more documents, and ask questions that are answered only from the selected document context.
 
 ## Project Highlights
 
 - Authentication, registration, email verification, password reset, and profile management
-- Private PDF upload flow with per-user document ownership
-- Background PDF processing with queued jobs
+- Private document upload flow with per-user document ownership
+- Background document processing with queued jobs
 - Poppler/pdftotext-based text extraction
 - OCR fallback for scanned and image-based PDFs using Tesseract and Poppler `pdftoppm`
+- DOCX text extraction using PhpOffice/PHPWord
 - Page-aware document chunking with `page_start` and `page_end`
 - Gemini embedding generation for document chunks
 - PostgreSQL pgvector storage and similarity retrieval
@@ -37,6 +38,7 @@ The project is built as a practical Retrieval-Augmented Generation application: 
 - PostgreSQL
 - pgvector
 - Spatie PDF To Text
+- PhpOffice/PHPWord
 - Poppler / `pdftotext` / `pdftoppm`
 - Tesseract OCR
 
@@ -64,33 +66,38 @@ The project is built as a practical Retrieval-Augmented Generation application: 
 ## Core User Flow
 
 1. A user registers and verifies their email.
-2. The user uploads a PDF from the document upload page.
-3. The PDF is stored in private Laravel storage.
-4. `ProcessDocumentJob` extracts text from the PDF using Poppler.
-5. `TextExtractionDecisionService` checks whether the native text is usable.
+2. The user uploads a PDF or DOCX from the document upload page.
+3. The document is stored in private Laravel storage.
+4. `ProcessDocumentJob` asks `DocumentTextExtractorService` to choose the extractor.
+5. PDFs are extracted with Poppler and checked by `TextExtractionDecisionService`.
 6. If needed, OCR converts PDF pages with `pdftoppm` and extracts text with Tesseract.
-7. Extracted text is cleaned and split into page-aware chunks.
-8. Chunks are saved to `document_chunks`.
-9. `GenerateDocumentEmbeddingsJob` generates Gemini embeddings for each chunk.
-10. Embeddings are stored in PostgreSQL using pgvector.
-11. The document becomes `ready`.
-12. The user creates a conversation scoped to selected documents or all ready documents.
-13. When the user asks a question, the app embeds the question.
-14. `RagRetrievalService` retrieves the most relevant chunks from the allowed document scope.
-15. `LlmService` asks Gemini to answer using only the retrieved context.
-16. The assistant response and citation metadata are saved to the conversation.
-17. The chat UI updates the answer, conversation metadata, and Gemini quota card without a full page reload.
+7. DOCX files are read with PhpOffice/PHPWord.
+8. Extracted text is cleaned and split into chunks.
+9. Chunks are saved to `document_chunks`.
+10. `GenerateDocumentEmbeddingsJob` generates Gemini embeddings for each chunk.
+11. Embeddings are stored in PostgreSQL using pgvector.
+12. The document becomes `ready`.
+13. The user creates a conversation scoped to selected documents or all ready documents.
+14. When the user asks a question, the app embeds the question.
+15. `RagRetrievalService` retrieves the most relevant chunks from the allowed document scope.
+16. `LlmService` asks Gemini to answer using only the retrieved context.
+17. The assistant response and citation metadata are saved to the conversation.
+18. The chat UI updates the answer, conversation metadata, and Gemini quota card without a full page reload.
 
 ## RAG Architecture
 
 ```text
-PDF Upload
+Document Upload
    |
    v
 Private Storage
    |
    v
 ProcessDocumentJob
+   |
+   +--> DocumentTextExtractorService
+   |       - dispatches by MIME type or extension
+   |       - keeps OCR limited to PDFs
    |
    +--> PdfExtractorService
    |       - runs pdftotext
@@ -106,9 +113,13 @@ ProcessDocumentJob
    |       - asks PdfImageConverterService to run pdftoppm
    |       - runs Tesseract OCR per page
    |
+   +--> WordExtractorService
+   |       - reads DOCX with PHPWord
+   |       - extracts paragraphs, headings, and table rows
+   |
    +--> DocumentChunker
            - creates overlapping chunks
-           - tracks page_start/page_end
+           - tracks PDF page_start/page_end when available
            - estimates token count
    |
    v
@@ -152,7 +163,7 @@ Users own documents and conversations. Email verification is required before acc
 
 ### Documents
 
-Documents represent uploaded PDFs.
+Documents represent uploaded PDF and DOCX files.
 
 Key fields:
 
@@ -214,10 +225,12 @@ Messages store user and assistant chat history. Assistant messages include citat
 ## Important Services
 
 - `PdfExtractorService` - extracts and cleans PDF text with page awareness.
+- `WordExtractorService` - extracts readable DOCX paragraphs, headings, and table rows with PHPWord.
+- `DocumentTextExtractorService` - dispatches extraction by document type and keeps OCR PDF-only.
 - `TextExtractionDecisionService` - decides whether native PDF text is sufficient or OCR is required.
 - `PdfImageConverterService` - converts PDF pages to temporary PNG images with Poppler `pdftoppm`.
 - `OcrService` - runs Tesseract OCR per converted page and preserves page metadata.
-- `DocumentChunker` - creates overlapping chunks and maps them to source pages.
+- `DocumentChunker` - creates overlapping chunks and maps them to PDF source pages when page data exists.
 - `EmbeddingService` - creates Gemini embeddings and validates vector dimensions.
 - `GeminiRateLimitService` - tracks shared Gemini request and token limits in cache.
 - `RagRetrievalService` - retrieves relevant chunks using pgvector.
@@ -242,10 +255,10 @@ Important caveat: the app can only track Gemini calls made through this Laravel 
 
 ## Background Jobs
 
-- `ProcessDocumentJob` - extracts PDF text, falls back to OCR when needed, chunks it, stores chunks, and updates document status.
+- `ProcessDocumentJob` - extracts document text, falls back to OCR for scanned PDFs when needed, chunks it, stores chunks, and updates document status.
 - `GenerateDocumentEmbeddingsJob` - generates embeddings for chunks and marks documents ready.
 
-The jobs are intentionally separated so PDF processing and API-based embedding generation remain isolated and easier to retry.
+The jobs are intentionally separated so document processing and API-based embedding generation remain isolated and easier to retry.
 
 ## Artisan Commands
 
@@ -291,7 +304,7 @@ The interface is designed as a focused SaaS dashboard:
 - Landing page for the product overview
 - Auth pages styled consistently with the application
 - Dashboard with document and question activity
-- Upload page for private PDF submission
+- Upload page for private PDF or DOCX submission
 - Documents list with search, filtering, status badges, and pagination
 - Document details page with processing timeline and chunk previews
 - Conversation-centric chat page
@@ -305,7 +318,8 @@ The interface is designed as a focused SaaS dashboard:
 ## Security and Authorization
 
 - Authenticated and verified users are required for application routes.
-- PDFs are stored in private storage, not public storage.
+- Uploaded documents are stored in private storage, not public storage.
+- DOCX files are read as data through PHPWord and are never executed.
 - Users can only view and delete their own documents.
 - Users can only access their own conversations.
 - Retrieval is scoped to the current conversation and current user.
@@ -321,6 +335,7 @@ The interface is designed as a focused SaaS dashboard:
 - pgvector extension enabled
 - Poppler installed with `pdftotext` and `pdftoppm` available
 - Tesseract OCR installed for scanned PDFs
+- PHP extensions needed by DOCX/PHPWord processing, including `zip`, `xml`, and `mbstring`
 - Gemini API key
 - SMTP credentials for email verification and password reset emails
 
@@ -435,6 +450,8 @@ MAIL_FROM_NAME="${APP_NAME}"
 
 If `PDFTOTEXT_PATH`, `PDFTOPPM_PATH`, or `TESSERACT_PATH` is empty, the app resolves the binary from the system path. On Windows/XAMPP, setting explicit `.exe` paths is usually more reliable.
 
+For DOCX extraction, make sure the PHP `zip`, `xml`, and `mbstring` extensions are enabled. On Windows/XAMPP, enable them in `php.ini` if needed, then restart Apache and the Laravel queue worker.
+
 See [Linux Deployment Guide](docs/linux-deployment-guide.md) for production server setup, including PostgreSQL, pgvector, Poppler, Tesseract OCR, queues, and Nginx.
 
 The Gemini rate-limit defaults above match the free-tier limits used by this project during development. Check your Gemini dashboard and update these values if Google changes your project limits or if you switch to a paid tier.
@@ -449,7 +466,7 @@ The Gemini rate-limit defaults above match the free-tier limits used by this pro
 php artisan queue:work
 ```
 
-4. Upload a text-based PDF or scanned PDF.
+4. Upload a text-based PDF, scanned PDF, or DOCX.
 5. Wait until the document status becomes `Ready`.
 6. Open DocuMind Chat.
 7. Create a conversation with one or more ready documents.
@@ -502,9 +519,11 @@ LIMIT 10;
 
 ## Known Limitations
 
-- Text-based PDFs are faster because OCR is skipped when native extraction is sufficient.
+- Text-based PDFs and DOCX files are faster because OCR is skipped when native extraction is sufficient.
 - OCR quality depends on scan resolution, document language, rotation, and Tesseract language data.
 - Tables, charts, and graph-heavy PDFs may lose structure during text extraction.
+- DOCX page numbers are not reliable during server-side extraction, so Word citations use the document source rather than page numbers.
+- Legacy `.doc` files are not supported yet; upload PDF or DOCX.
 - Retrieval quality depends on extracted text quality and chunk boundaries.
 - Streaming responses are not implemented.
 - Gemini quota tracking is local to this Laravel app and cannot see API-key usage from outside the app.

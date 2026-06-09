@@ -24,7 +24,7 @@ class EmbedDocumentCommand extends Command
         }
 
         if ($document->chunks()->count() === 0) {
-            $this->error('Document has no chunks. Process the PDF before embedding.');
+            $this->error('Document has no chunks. Process the document before embedding.');
 
             return self::FAILURE;
         }

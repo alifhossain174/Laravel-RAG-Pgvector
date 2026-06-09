@@ -89,7 +89,7 @@ class RetrieveRagChunksCommand extends Command
     private function pageLabel(?int $pageStart, ?int $pageEnd): string
     {
         if ($pageStart === null && $pageEnd === null) {
-            return 'Page unknown';
+            return 'Document source';
         }
 
         if ($pageStart !== null && ($pageEnd === null || $pageStart === $pageEnd)) {

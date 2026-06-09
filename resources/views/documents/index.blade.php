@@ -11,7 +11,7 @@
             <p class="mt-2 text-sm text-slate-600">Browse uploaded files and open a document-specific chat.</p>
         </div>
         <a href="{{ route('documents.create') }}" class="rounded-lg bg-teal-600 px-4 py-2.5 text-center text-sm font-semibold text-white shadow-sm shadow-teal-200 hover:bg-teal-700">
-            Upload PDF
+            Upload document
         </a>
     </div>
 

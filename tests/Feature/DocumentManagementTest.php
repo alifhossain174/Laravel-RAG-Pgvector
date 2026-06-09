@@ -7,13 +7,15 @@ use App\Jobs\GenerateDocumentEmbeddingsJob;
 use App\Models\Document;
 use App\Models\User;
 use App\Services\DocumentChunker;
+use App\Services\DocumentTextExtractorService;
 use App\Services\OcrService;
 use App\Services\PdfExtractorService;
-use App\Services\TextExtractionDecisionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use PhpOffice\PhpWord\IOFactory;
+use PhpOffice\PhpWord\PhpWord;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -48,6 +50,74 @@ class DocumentManagementTest extends TestCase
         Queue::assertPushed(ProcessDocumentJob::class, fn (ProcessDocumentJob $job) => $job->documentId === $document->id);
     }
 
+    public function test_verified_user_can_upload_docx_document(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+
+        $user = User::factory()->create();
+        $file = UploadedFile::fake()->create(
+            'purchase-guide.docx',
+            128,
+            DocumentTextExtractorService::DOCX_MIME_TYPE
+        );
+
+        $response = $this
+            ->actingAs($user)
+            ->post(route('documents.store'), [
+                'title' => 'Purchase Guide',
+                'document' => $file,
+            ]);
+
+        $document = Document::query()->firstOrFail();
+
+        $response->assertRedirect(route('documents.show', $document));
+        $this->assertSame('purchase-guide.docx', $document->original_filename);
+        $this->assertSame(DocumentTextExtractorService::DOCX_MIME_TYPE, $document->mime_type);
+        Storage::disk('local')->assertExists($document->file_path);
+        Queue::assertPushed(ProcessDocumentJob::class, fn (ProcessDocumentJob $job) => $job->documentId === $document->id);
+    }
+
+    public function test_upload_rejects_invalid_document_type(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+
+        $user = User::factory()->create();
+        $file = UploadedFile::fake()->create('notes.txt', 12, 'text/plain');
+
+        $this
+            ->actingAs($user)
+            ->post(route('documents.store'), [
+                'document' => $file,
+            ])
+            ->assertSessionHasErrors(['document']);
+
+        $this->assertDatabaseCount('documents', 0);
+        Queue::assertNothingPushed();
+    }
+
+    public function test_upload_rejects_legacy_doc_with_clear_message(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+
+        $user = User::factory()->create();
+        $file = UploadedFile::fake()->create('legacy.doc', 12, 'application/msword');
+
+        $this
+            ->actingAs($user)
+            ->post(route('documents.store'), [
+                'document' => $file,
+            ])
+            ->assertSessionHasErrors([
+                'document' => 'Legacy .doc files are not supported yet. Please upload PDF or DOCX.',
+            ]);
+
+        $this->assertDatabaseCount('documents', 0);
+        Queue::assertNothingPushed();
+    }
+
     public function test_process_document_job_extracts_text_and_creates_chunks(): void
     {
         Storage::fake('local');
@@ -75,10 +145,8 @@ class DocumentManagementTest extends TestCase
         });
 
         (new ProcessDocumentJob($document->id))->handle(
-            app(PdfExtractorService::class),
-            app(DocumentChunker::class),
-            app(TextExtractionDecisionService::class),
-            app(OcrService::class)
+            app(DocumentTextExtractorService::class),
+            app(DocumentChunker::class)
         );
 
         $document->refresh();
@@ -143,10 +211,8 @@ class DocumentManagementTest extends TestCase
         });
 
         (new ProcessDocumentJob($document->id))->handle(
-            app(PdfExtractorService::class),
-            app(DocumentChunker::class),
-            app(TextExtractionDecisionService::class),
-            app(OcrService::class)
+            app(DocumentTextExtractorService::class),
+            app(DocumentChunker::class)
         );
 
         $document->refresh();
@@ -157,6 +223,46 @@ class DocumentManagementTest extends TestCase
         $this->assertSame('pdf_ocr', $chunk->metadata['source']);
         $this->assertSame(['ocr'], $chunk->metadata['extraction_methods']);
         $this->assertSame('ocr', $chunk->metadata['pages'][0]['extraction_method']);
+        Queue::assertPushed(GenerateDocumentEmbeddingsJob::class, fn (GenerateDocumentEmbeddingsJob $job) => $job->documentId === $document->id);
+    }
+
+    public function test_process_document_job_extracts_docx_text_and_creates_chunks(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+
+        $user = User::factory()->create();
+        $path = 'documents/'.$user->id.'/purchase-guide.docx';
+        $fixture = $this->makeDocxFixture();
+        Storage::disk('local')->put($path, file_get_contents($fixture));
+        @unlink($fixture);
+
+        $document = $user->documents()->create([
+            'title' => 'Purchase Guide',
+            'original_filename' => 'purchase-guide.docx',
+            'file_path' => $path,
+            'mime_type' => DocumentTextExtractorService::DOCX_MIME_TYPE,
+            'status' => 'uploaded',
+        ]);
+
+        (new ProcessDocumentJob($document->id))->handle(
+            app(DocumentTextExtractorService::class),
+            app(DocumentChunker::class)
+        );
+
+        $document->refresh();
+        $chunk = $document->chunks()->firstOrFail();
+
+        $this->assertSame('chunked', $document->status);
+        $this->assertNull($document->total_pages);
+        $this->assertSame(1, $document->total_chunks);
+        $this->assertNull($chunk->page_start);
+        $this->assertNull($chunk->page_end);
+        $this->assertStringContainsString('Budget Phone Guide', $chunk->content);
+        $this->assertStringContainsString('Xiaomi 17T', $chunk->content);
+        $this->assertSame('docx', $chunk->metadata['source_type']);
+        $this->assertSame('word_text_extraction', $chunk->metadata['source']);
+        $this->assertSame(['word_text_extraction'], $chunk->metadata['extraction_methods']);
         Queue::assertPushed(GenerateDocumentEmbeddingsJob::class, fn (GenerateDocumentEmbeddingsJob $job) => $job->documentId === $document->id);
     }
 
@@ -335,5 +441,29 @@ class DocumentManagementTest extends TestCase
 
         $this->assertDatabaseMissing('documents', ['id' => $document->id]);
         Storage::disk('local')->assertMissing($path);
+    }
+
+    private function makeDocxFixture(): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'documind-docx-');
+        @unlink($path);
+        $path .= '.docx';
+
+        $phpWord = new PhpWord();
+        $section = $phpWord->addSection();
+        $section->addTitle('Budget Phone Guide', 1);
+        $section->addText('The Xiaomi 17T is the best price to performance option.');
+
+        $table = $section->addTable();
+        $table->addRow();
+        $table->addCell()->addText('Model');
+        $table->addCell()->addText('Total Price');
+        $table->addRow();
+        $table->addCell()->addText('Xiaomi 17T');
+        $table->addCell()->addText('800 EUR');
+
+        IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+
+        return $path;
     }
 }

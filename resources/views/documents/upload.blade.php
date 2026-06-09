@@ -7,7 +7,7 @@
 @section('content')
     <div>
         <h1 class="text-2xl font-semibold tracking-tight text-slate-950">Upload document</h1>
-        <p class="mt-2 text-sm text-slate-600">Upload a PDF to start automatic text extraction, chunking, and embedding generation.</p>
+        <p class="mt-2 text-sm text-slate-600">Upload a document to start automatic text extraction, chunking, and embedding generation.</p>
     </div>
 
     <div class="mt-6 grid gap-6 lg:grid-cols-[1.4fr_0.9fr]">
@@ -15,13 +15,13 @@
             @csrf
 
             <label for="document" class="block cursor-pointer rounded-lg border-2 border-dashed border-teal-200 bg-teal-50/40 p-8 text-center transition hover:border-teal-300 hover:bg-teal-50">
-                <div class="mx-auto grid size-12 place-items-center rounded-lg bg-white text-sm font-bold text-teal-700 shadow-sm">PDF</div>
-                <p class="mt-4 font-semibold text-slate-950">Choose a PDF to upload</p>
-                <p class="mt-2 text-sm text-slate-500">PDF only. Maximum file size is 20MB.</p>
+                <div class="mx-auto grid size-12 place-items-center rounded-lg bg-white text-sm font-bold text-teal-700 shadow-sm">DOC</div>
+                <p class="mt-4 font-semibold text-slate-950">Choose a document to upload</p>
+                <p class="mt-2 text-sm text-slate-500">PDF or DOCX. Maximum file size is 20MB.</p>
                 <span class="mt-5 inline-flex rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">
                     Browse files
                 </span>
-                <input id="document" name="document" type="file" accept="application/pdf,.pdf" required class="sr-only">
+                <input id="document" name="document" type="file" accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,.docx" required class="sr-only">
             </label>
             @error('document')
                 <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
@@ -50,11 +50,11 @@
                     <span class="font-medium text-slate-700">Processing starts after upload</span>
                     @include('partials.status-badge', ['status' => 'uploaded'])
                 </div>
-                <p class="mt-3 text-sm leading-6 text-slate-500">The PDF is stored privately, then a queued job extracts pages, creates chunks, and generates embeddings. The document status updates as processing completes.</p>
+                <p class="mt-3 text-sm leading-6 text-slate-500">The document is stored privately, then a queued job extracts text, creates chunks, and generates embeddings. The document status updates as processing completes.</p>
             </div>
 
             <button type="submit" class="mt-6 w-full rounded-lg bg-teal-600 px-4 py-3 text-sm font-semibold text-white shadow-sm shadow-teal-200 hover:bg-teal-700">
-                Upload PDF
+                Upload document
             </button>
         </form>
 
@@ -76,7 +76,7 @@
                 @empty
                     <div class="p-8 text-center">
                         <p class="font-semibold text-slate-950">No uploads yet</p>
-                        <p class="mt-2 text-sm text-slate-500">Recent files will appear here after your first PDF upload.</p>
+                        <p class="mt-2 text-sm text-slate-500">Recent files will appear here after your first document upload.</p>
                     </div>
                 @endforelse
             </div>

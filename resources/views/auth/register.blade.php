@@ -1,7 +1,7 @@
 <x-guest-layout
     title="Register"
     heading="Create your RAG workspace"
-    description="Register to upload PDFs, prepare embeddings, and chat with verified source citations."
+    description="Register to upload documents, prepare embeddings, and chat with verified source citations."
 >
     <form method="POST" action="{{ route('register') }}" class="space-y-5">
         @csrf
