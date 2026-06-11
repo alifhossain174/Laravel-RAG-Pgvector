@@ -14,7 +14,9 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
-use PhpOffice\PhpWord\IOFactory;
+use PhpOffice\PhpSpreadsheet\IOFactory as SpreadsheetIOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpWord\IOFactory as WordIOFactory;
 use PhpOffice\PhpWord\PhpWord;
 use RuntimeException;
 use Tests\TestCase;
@@ -78,6 +80,60 @@ class DocumentManagementTest extends TestCase
         Queue::assertPushed(ProcessDocumentJob::class, fn (ProcessDocumentJob $job) => $job->documentId === $document->id);
     }
 
+    public function test_verified_user_can_upload_xlsx_document(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+
+        $user = User::factory()->create();
+        $file = UploadedFile::fake()->create(
+            'invoices.xlsx',
+            128,
+            DocumentTextExtractorService::XLSX_MIME_TYPE
+        );
+
+        $response = $this
+            ->actingAs($user)
+            ->post(route('documents.store'), [
+                'title' => 'Invoices',
+                'document' => $file,
+            ]);
+
+        $document = Document::query()->firstOrFail();
+
+        $response->assertRedirect(route('documents.show', $document));
+        $this->assertSame('invoices.xlsx', $document->original_filename);
+        $this->assertSame(DocumentTextExtractorService::XLSX_MIME_TYPE, $document->mime_type);
+        Storage::disk('local')->assertExists($document->file_path);
+        Queue::assertPushed(ProcessDocumentJob::class, fn (ProcessDocumentJob $job) => $job->documentId === $document->id);
+    }
+
+    public function test_verified_user_can_upload_csv_document_reported_as_text_plain(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+
+        $user = User::factory()->create();
+        $file = UploadedFile::fake()->createWithContent(
+            'invoices.csv',
+            "Invoice No,Customer,Amount\nINV-001,John Doe,250.00\n"
+        );
+
+        $response = $this
+            ->actingAs($user)
+            ->post(route('documents.store'), [
+                'title' => 'Invoices',
+                'document' => $file,
+            ]);
+
+        $document = Document::query()->firstOrFail();
+
+        $response->assertRedirect(route('documents.show', $document));
+        $this->assertSame('invoices.csv', $document->original_filename);
+        Storage::disk('local')->assertExists($document->file_path);
+        Queue::assertPushed(ProcessDocumentJob::class, fn (ProcessDocumentJob $job) => $job->documentId === $document->id);
+    }
+
     public function test_upload_rejects_invalid_document_type(): void
     {
         Storage::fake('local');
@@ -111,7 +167,7 @@ class DocumentManagementTest extends TestCase
                 'document' => $file,
             ])
             ->assertSessionHasErrors([
-                'document' => 'Legacy .doc files are not supported yet. Please upload PDF or DOCX.',
+                'document' => 'Legacy .doc files are not supported yet. Please upload PDF, DOCX, XLSX, or CSV.',
             ]);
 
         $this->assertDatabaseCount('documents', 0);
@@ -263,6 +319,78 @@ class DocumentManagementTest extends TestCase
         $this->assertSame('docx', $chunk->metadata['source_type']);
         $this->assertSame('word_text_extraction', $chunk->metadata['source']);
         $this->assertSame(['word_text_extraction'], $chunk->metadata['extraction_methods']);
+        Queue::assertPushed(GenerateDocumentEmbeddingsJob::class, fn (GenerateDocumentEmbeddingsJob $job) => $job->documentId === $document->id);
+    }
+
+    public function test_process_document_job_extracts_xlsx_text_and_creates_chunks(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+
+        $user = User::factory()->create();
+        $path = 'documents/'.$user->id.'/invoices.xlsx';
+        $fixture = $this->makeXlsxFixture();
+        Storage::disk('local')->put($path, file_get_contents($fixture));
+        @unlink($fixture);
+
+        $document = $user->documents()->create([
+            'title' => 'Invoices',
+            'original_filename' => 'invoices.xlsx',
+            'file_path' => $path,
+            'mime_type' => DocumentTextExtractorService::XLSX_MIME_TYPE,
+            'status' => 'uploaded',
+        ]);
+
+        (new ProcessDocumentJob($document->id))->handle(
+            app(DocumentTextExtractorService::class),
+            app(DocumentChunker::class)
+        );
+
+        $document->refresh();
+        $chunk = $document->chunks()->firstOrFail();
+
+        $this->assertSame('chunked', $document->status);
+        $this->assertNull($document->total_pages);
+        $this->assertStringContainsString('Sheet: Invoices', $chunk->content);
+        $this->assertStringContainsString('Invoice No = INV-001', $chunk->content);
+        $this->assertSame('xlsx', $chunk->metadata['source_type']);
+        $this->assertSame('spreadsheet_text_extraction', $chunk->metadata['source']);
+        $this->assertSame(['spreadsheet_text_extraction'], $chunk->metadata['extraction_methods']);
+        $this->assertSame('Invoices', $chunk->metadata['pages'][0]['sheet_name']);
+        $this->assertSame(2, $chunk->metadata['pages'][0]['row_start']);
+        Queue::assertPushed(GenerateDocumentEmbeddingsJob::class, fn (GenerateDocumentEmbeddingsJob $job) => $job->documentId === $document->id);
+    }
+
+    public function test_process_document_job_extracts_csv_text_and_creates_chunks(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+
+        $user = User::factory()->create();
+        $path = 'documents/'.$user->id.'/invoices.csv';
+        Storage::disk('local')->put($path, "Invoice No,Customer,Amount\nINV-001,John Doe,250.00\n");
+
+        $document = $user->documents()->create([
+            'title' => 'Invoices',
+            'original_filename' => 'invoices.csv',
+            'file_path' => $path,
+            'mime_type' => 'text/plain',
+            'status' => 'uploaded',
+        ]);
+
+        (new ProcessDocumentJob($document->id))->handle(
+            app(DocumentTextExtractorService::class),
+            app(DocumentChunker::class)
+        );
+
+        $document->refresh();
+        $chunk = $document->chunks()->firstOrFail();
+
+        $this->assertSame('chunked', $document->status);
+        $this->assertStringContainsString('Sheet: CSV', $chunk->content);
+        $this->assertStringContainsString('Customer = John Doe', $chunk->content);
+        $this->assertSame('csv', $chunk->metadata['source_type']);
+        $this->assertSame('CSV', $chunk->metadata['pages'][0]['sheet_name']);
         Queue::assertPushed(GenerateDocumentEmbeddingsJob::class, fn (GenerateDocumentEmbeddingsJob $job) => $job->documentId === $document->id);
     }
 
@@ -462,7 +590,27 @@ class DocumentManagementTest extends TestCase
         $table->addCell()->addText('Xiaomi 17T');
         $table->addCell()->addText('800 EUR');
 
-        IOFactory::createWriter($phpWord, 'Word2007')->save($path);
+        WordIOFactory::createWriter($phpWord, 'Word2007')->save($path);
+
+        return $path;
+    }
+
+    private function makeXlsxFixture(): string
+    {
+        $path = tempnam(sys_get_temp_dir(), 'documind-xlsx-');
+        @unlink($path);
+        $path .= '.xlsx';
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Invoices');
+        $sheet->fromArray([
+            ['Invoice No', 'Customer', 'Amount', 'Date'],
+            ['INV-001', 'John Doe', 250.00, '2026-06-10'],
+        ]);
+
+        SpreadsheetIOFactory::createWriter($spreadsheet, 'Xlsx')->save($path);
+        $spreadsheet->disconnectWorksheets();
 
         return $path;
     }

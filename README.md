@@ -2,7 +2,7 @@
 
 ![DocuMind Laravel RAG Document Assistant](docs/images/documind-readme-hero-v2.svg)
 
-DocuMind is a full-stack Laravel application for uploading PDF and DOCX documents, processing them into searchable chunks, storing vector embeddings with PostgreSQL pgvector, and answering document-scoped questions with source citations.
+DocuMind is a full-stack Laravel application for uploading PDF, DOCX, XLSX, and CSV documents, processing them into searchable chunks, storing vector embeddings with PostgreSQL pgvector, and answering document-scoped questions with source citations.
 
 The project is built as a practical Retrieval-Augmented Generation application: users verify their email, upload private documents, wait for background processing, create conversations around one or more documents, and ask questions that are answered only from the selected document context.
 
@@ -14,6 +14,7 @@ The project is built as a practical Retrieval-Augmented Generation application: 
 - Poppler/pdftotext-based text extraction
 - OCR fallback for scanned and image-based PDFs using Tesseract and Poppler `pdftoppm`
 - DOCX text extraction using PhpOffice/PHPWord
+- XLSX and CSV text extraction using PhpOffice/PhpSpreadsheet
 - Page-aware document chunking with `page_start` and `page_end`
 - Gemini embedding generation for document chunks
 - PostgreSQL pgvector storage and similarity retrieval
@@ -39,6 +40,7 @@ The project is built as a practical Retrieval-Augmented Generation application: 
 - pgvector
 - Spatie PDF To Text
 - PhpOffice/PHPWord
+- PhpOffice/PhpSpreadsheet
 - Poppler / `pdftotext` / `pdftoppm`
 - Tesseract OCR
 
@@ -66,23 +68,24 @@ The project is built as a practical Retrieval-Augmented Generation application: 
 ## Core User Flow
 
 1. A user registers and verifies their email.
-2. The user uploads a PDF or DOCX from the document upload page.
+2. The user uploads a PDF, DOCX, XLSX, or CSV from the document upload page.
 3. The document is stored in private Laravel storage.
 4. `ProcessDocumentJob` asks `DocumentTextExtractorService` to choose the extractor.
-5. PDFs are extracted with Poppler and checked by `TextExtractionDecisionService`.
-6. If needed, OCR converts PDF pages with `pdftoppm` and extracts text with Tesseract.
+5. Text-based PDFs are extracted with Poppler and checked by `TextExtractionDecisionService`.
+6. If needed, scanned PDFs use OCR by converting PDF pages with `pdftoppm` and extracting text with Tesseract.
 7. DOCX files are read with PhpOffice/PHPWord.
-8. Extracted text is cleaned and split into chunks.
-9. Chunks are saved to `document_chunks`.
-10. `GenerateDocumentEmbeddingsJob` generates Gemini embeddings for each chunk.
-11. Embeddings are stored in PostgreSQL using pgvector.
-12. The document becomes `ready`.
-13. The user creates a conversation scoped to selected documents or all ready documents.
-14. When the user asks a question, the app embeds the question.
-15. `RagRetrievalService` retrieves the most relevant chunks from the allowed document scope.
-16. `LlmService` asks Gemini to answer using only the retrieved context.
-17. The assistant response and citation metadata are saved to the conversation.
-18. The chat UI updates the answer, conversation metadata, and Gemini quota card without a full page reload.
+8. XLSX and CSV files are read with PhpOffice/PhpSpreadsheet.
+9. Extracted text is cleaned and split into chunks.
+10. Chunks are saved to `document_chunks`.
+11. `GenerateDocumentEmbeddingsJob` generates Gemini embeddings for each chunk.
+12. Embeddings are stored in PostgreSQL using pgvector.
+13. The document becomes `ready`.
+14. The user creates a conversation scoped to selected documents or all ready documents.
+15. When the user asks a question, the app embeds the question.
+16. `RagRetrievalService` retrieves the most relevant chunks from the allowed document scope.
+17. `LlmService` asks Gemini to answer using only the retrieved context.
+18. The assistant response and citation metadata are saved to the conversation.
+19. The chat UI updates the answer, conversation metadata, and Gemini quota card without a full page reload.
 
 ## RAG Architecture
 
@@ -117,9 +120,14 @@ ProcessDocumentJob
    |       - reads DOCX with PHPWord
    |       - extracts paragraphs, headings, and table rows
    |
+   +--> ExcelExtractorService
+   |       - reads XLSX and CSV with PhpSpreadsheet
+   |       - preserves sheet names and row/header metadata
+   |
    +--> DocumentChunker
            - creates overlapping chunks
            - tracks PDF page_start/page_end when available
+           - keeps spreadsheet sheet and row metadata when available
            - estimates token count
    |
    v
@@ -163,7 +171,7 @@ Users own documents and conversations. Email verification is required before acc
 
 ### Documents
 
-Documents represent uploaded PDF and DOCX files.
+Documents represent uploaded PDF, DOCX, XLSX, and CSV files.
 
 Key fields:
 
@@ -226,11 +234,12 @@ Messages store user and assistant chat history. Assistant messages include citat
 
 - `PdfExtractorService` - extracts and cleans PDF text with page awareness.
 - `WordExtractorService` - extracts readable DOCX paragraphs, headings, and table rows with PHPWord.
+- `ExcelExtractorService` - extracts XLSX worksheets and CSV rows with header/value relationships and sheet or row metadata.
 - `DocumentTextExtractorService` - dispatches extraction by document type and keeps OCR PDF-only.
 - `TextExtractionDecisionService` - decides whether native PDF text is sufficient or OCR is required.
 - `PdfImageConverterService` - converts PDF pages to temporary PNG images with Poppler `pdftoppm`.
 - `OcrService` - runs Tesseract OCR per converted page and preserves page metadata.
-- `DocumentChunker` - creates overlapping chunks and maps them to PDF source pages when page data exists.
+- `DocumentChunker` - creates overlapping chunks and maps them to PDF source pages or spreadsheet sheet/row metadata when source data exists.
 - `EmbeddingService` - creates Gemini embeddings and validates vector dimensions.
 - `GeminiRateLimitService` - tracks shared Gemini request and token limits in cache.
 - `RagRetrievalService` - retrieves relevant chunks using pgvector.
@@ -304,7 +313,7 @@ The interface is designed as a focused SaaS dashboard:
 - Landing page for the product overview
 - Auth pages styled consistently with the application
 - Dashboard with document and question activity
-- Upload page for private PDF or DOCX submission
+- Upload page for private PDF, DOCX, XLSX, or CSV submission
 - Documents list with search, filtering, status badges, and pagination
 - Document details page with processing timeline and chunk previews
 - Conversation-centric chat page
@@ -320,6 +329,7 @@ The interface is designed as a focused SaaS dashboard:
 - Authenticated and verified users are required for application routes.
 - Uploaded documents are stored in private storage, not public storage.
 - DOCX files are read as data through PHPWord and are never executed.
+- XLSX and CSV files are read as data through PhpSpreadsheet and are never executed.
 - Users can only view and delete their own documents.
 - Users can only access their own conversations.
 - Retrieval is scoped to the current conversation and current user.
@@ -335,7 +345,7 @@ The interface is designed as a focused SaaS dashboard:
 - pgvector extension enabled
 - Poppler installed with `pdftotext` and `pdftoppm` available
 - Tesseract OCR installed for scanned PDFs
-- PHP extensions needed by DOCX/PHPWord processing, including `zip`, `xml`, and `mbstring`
+- PHP extensions needed by DOCX/PHPWord and XLSX/CSV PhpSpreadsheet processing, including `zip`, `xml`, `mbstring`, and usually `gd`
 - Gemini API key
 - SMTP credentials for email verification and password reset emails
 
@@ -450,7 +460,7 @@ MAIL_FROM_NAME="${APP_NAME}"
 
 If `PDFTOTEXT_PATH`, `PDFTOPPM_PATH`, or `TESSERACT_PATH` is empty, the app resolves the binary from the system path. On Windows/XAMPP, setting explicit `.exe` paths is usually more reliable.
 
-For DOCX extraction, make sure the PHP `zip`, `xml`, and `mbstring` extensions are enabled. On Windows/XAMPP, enable them in `php.ini` if needed, then restart Apache and the Laravel queue worker.
+For DOCX and XLSX/CSV extraction, make sure the PHP `zip`, `xml`, `mbstring`, and usually `gd` extensions are enabled. On Windows/XAMPP, enable them in `php.ini` if needed, then restart Apache and the Laravel queue worker. Excel and CSV support does not require extra Windows software like Poppler or Tesseract; those binaries are only needed for PDF extraction and scanned PDF OCR.
 
 See [Linux Deployment Guide](docs/linux-deployment-guide.md) for production server setup, including PostgreSQL, pgvector, Poppler, Tesseract OCR, queues, and Nginx.
 
@@ -466,7 +476,7 @@ The Gemini rate-limit defaults above match the free-tier limits used by this pro
 php artisan queue:work
 ```
 
-4. Upload a text-based PDF, scanned PDF, or DOCX.
+4. Upload a text-based PDF, scanned PDF, DOCX, XLSX, or CSV.
 5. Wait until the document status becomes `Ready`.
 6. Open DocuMind Chat.
 7. Create a conversation with one or more ready documents.
@@ -519,11 +529,15 @@ LIMIT 10;
 
 ## Known Limitations
 
-- Text-based PDFs and DOCX files are faster because OCR is skipped when native extraction is sufficient.
+- Text-based PDFs, DOCX, XLSX, and CSV files are faster because OCR is skipped when native extraction is sufficient.
 - OCR quality depends on scan resolution, document language, rotation, and Tesseract language data.
 - Tables, charts, and graph-heavy PDFs may lose structure during text extraction.
 - DOCX page numbers are not reliable during server-side extraction, so Word citations use the document source rather than page numbers.
-- Legacy `.doc` files are not supported yet; upload PDF or DOCX.
+- XLSX and CSV citations may use sheet and row metadata instead of page numbers.
+- Charts and images inside Excel files are not extracted.
+- Complex merged cells may lose some visual layout.
+- Formula results are extracted as readable values where possible.
+- Legacy `.doc` and `.xls` files are not supported yet; upload PDF, DOCX, XLSX, or CSV.
 - Retrieval quality depends on extracted text quality and chunk boundaries.
 - Streaming responses are not implemented.
 - Gemini quota tracking is local to this Laravel app and cannot see API-key usage from outside the app.

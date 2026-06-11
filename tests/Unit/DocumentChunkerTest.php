@@ -42,6 +42,41 @@ class DocumentChunkerTest extends TestCase
         ], $chunks[0]['metadata']['pages']);
     }
 
+    public function test_chunk_pages_preserves_spreadsheet_source_metadata(): void
+    {
+        $chunks = app(DocumentChunker::class)->chunkPages([
+            [
+                'page' => null,
+                'content' => str_repeat('Sheet: Invoices Row 2: Invoice No = INV-001; Customer = John Doe. ', 20),
+                'metadata' => [
+                    'page' => null,
+                    'source_type' => 'xlsx',
+                    'extraction_method' => 'spreadsheet_text_extraction',
+                    'sheet_name' => 'Invoices',
+                    'row_start' => 2,
+                    'row_end' => 51,
+                ],
+            ],
+        ], chunkSize: 900, overlap: 100);
+
+        $this->assertNotEmpty($chunks);
+        $this->assertNull($chunks[0]['page_start']);
+        $this->assertNull($chunks[0]['page_end']);
+        $this->assertSame('spreadsheet_text_extraction', $chunks[0]['metadata']['source']);
+        $this->assertSame('xlsx', $chunks[0]['metadata']['source_type']);
+        $this->assertSame(['spreadsheet_text_extraction'], $chunks[0]['metadata']['extraction_methods']);
+        $this->assertSame([
+            [
+                'page' => null,
+                'extraction_method' => 'spreadsheet_text_extraction',
+                'source_type' => 'xlsx',
+                'sheet_name' => 'Invoices',
+                'row_start' => 2,
+                'row_end' => 51,
+            ],
+        ], $chunks[0]['metadata']['pages']);
+    }
+
     public function test_chunk_pages_does_not_split_multibyte_characters(): void
     {
         $chunks = app(DocumentChunker::class)->chunkPages([

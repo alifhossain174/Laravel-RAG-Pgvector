@@ -17,11 +17,11 @@
             <label for="document" class="block cursor-pointer rounded-lg border-2 border-dashed border-teal-200 bg-teal-50/40 p-8 text-center transition hover:border-teal-300 hover:bg-teal-50">
                 <div class="mx-auto grid size-12 place-items-center rounded-lg bg-white text-sm font-bold text-teal-700 shadow-sm">DOC</div>
                 <p class="mt-4 font-semibold text-slate-950">Choose a document to upload</p>
-                <p class="mt-2 text-sm text-slate-500">PDF or DOCX. Maximum file size is 20MB.</p>
+                <p class="mt-2 text-sm text-slate-500">PDF, DOCX, XLSX, or CSV. Maximum file size is 20MB.</p>
                 <span class="mt-5 inline-flex rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50">
                     Browse files
                 </span>
-                <input id="document" name="document" type="file" accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,.docx" required class="sr-only">
+                <input id="document" name="document" type="file" accept=".pdf,.docx,.xlsx,.csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" required class="sr-only">
             </label>
             @error('document')
                 <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>

@@ -13,9 +13,12 @@ class DocumentTextExtractorService
 
     public const DOCX_MIME_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
+    public const XLSX_MIME_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
     public function __construct(
         private readonly PdfExtractorService $pdfExtractor,
         private readonly WordExtractorService $wordExtractor,
+        private readonly ExcelExtractorService $excelExtractor,
         private readonly TextExtractionDecisionService $decisionService,
         private readonly OcrService $ocr,
     ) {
@@ -34,7 +37,7 @@ class DocumentTextExtractorService
         $mimeType = strtolower((string) $document->mime_type);
 
         if ($extension === 'doc') {
-            throw new RuntimeException('Legacy .doc files are not supported yet. Please upload PDF or DOCX.');
+            throw new RuntimeException('Legacy .doc files are not supported yet. Please upload PDF, DOCX, XLSX, or CSV.');
         }
 
         if ($this->isPdf($mimeType, $extension)) {
@@ -45,7 +48,11 @@ class DocumentTextExtractorService
             return $this->wordExtractor->extractPages($absolutePath);
         }
 
-        throw new RuntimeException('Unsupported document type. Please upload PDF or DOCX.');
+        if ($this->isSpreadsheet($mimeType, $extension)) {
+            return $this->excelExtractor->extractPages($absolutePath, $this->spreadsheetExtension($mimeType, $extension));
+        }
+
+        throw new RuntimeException('Unsupported document type. Please upload PDF, DOCX, XLSX, or CSV.');
     }
 
     /**
@@ -109,5 +116,23 @@ class DocumentTextExtractorService
     private function isDocx(string $mimeType, string $extension): bool
     {
         return $extension === 'docx' || $mimeType === self::DOCX_MIME_TYPE;
+    }
+
+    private function isSpreadsheet(string $mimeType, string $extension): bool
+    {
+        if ($extension === 'xlsx' || $mimeType === self::XLSX_MIME_TYPE) {
+            return true;
+        }
+
+        return $extension === 'csv';
+    }
+
+    private function spreadsheetExtension(string $mimeType, string $extension): string
+    {
+        if ($extension === 'xlsx' || $extension === 'csv') {
+            return $extension;
+        }
+
+        return $mimeType === self::XLSX_MIME_TYPE ? 'xlsx' : 'csv';
     }
 }

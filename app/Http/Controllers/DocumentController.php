@@ -32,7 +32,7 @@ class DocumentController extends Controller
 
         if ($file && strtolower($file->getClientOriginalExtension()) === 'doc') {
             throw ValidationException::withMessages([
-                'document' => 'Legacy .doc files are not supported yet. Please upload PDF or DOCX.',
+                'document' => 'Legacy .doc files are not supported yet. Please upload PDF, DOCX, XLSX, or CSV.',
             ]);
         }
 
@@ -42,13 +42,13 @@ class DocumentController extends Controller
             'document' => [
                 'required',
                 'file',
-                'mimes:pdf,docx',
-                'mimetypes:application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'mimes:pdf,docx,xlsx,csv',
+                'mimetypes:application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,application/csv,text/plain,application/vnd.ms-excel',
                 'max:20480',
             ],
         ], [
-            'document.mimes' => 'Please upload a PDF or DOCX document.',
-            'document.mimetypes' => 'Please upload a PDF or DOCX document.',
+            'document.mimes' => 'Please upload a PDF, DOCX, XLSX, or CSV document.',
+            'document.mimetypes' => 'Please upload a PDF, DOCX, XLSX, or CSV document.',
         ]);
 
         $path = $file->store('documents/'.$request->user()->id, 'local');

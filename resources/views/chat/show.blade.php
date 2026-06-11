@@ -100,11 +100,11 @@
                     </div>
                 </div>
 
-                <div id="messageThread" class="min-w-0 flex-1 space-y-6 overflow-y-auto overscroll-contain bg-slate-50/60 p-5">
+                <div id="messageThread" class="min-w-0 flex flex-1 flex-col overflow-y-auto overscroll-contain bg-slate-50/60 p-5">
                     @forelse ($conversation->messages as $message)
                         @include('partials.chat-message', ['message' => $message])
                     @empty
-                        <div data-empty-chat-state class="grid min-h-80 place-items-center rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
+                        <div data-empty-chat-state class="flex flex-1 items-center justify-center rounded-lg border border-dashed border-slate-300 bg-white text-center">
                             <div>
                                 <p class="font-semibold text-slate-950">No messages yet</p>
                                 <p class="mt-2 text-sm leading-6 text-slate-500">Ask the first question to start this conversation.</p>
@@ -121,18 +121,6 @@
                         </article>
                     </template>
 
-                    @if ($conversation->messages->where('role', \App\Models\Message::ROLE_ASSISTANT)->isEmpty())
-                        <div data-empty-sources-state class="max-w-4xl">
-                            <div class="mb-3 flex items-center justify-between gap-3">
-                                <p class="text-sm font-semibold text-slate-950">Sources and citations</p>
-                                <span class="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-500 ring-1 ring-slate-200">Waiting for answer</span>
-                            </div>
-                            <div class="rounded-lg border border-dashed border-teal-200 bg-teal-50/50 p-4">
-                                <p class="text-sm font-semibold text-slate-950">Citations will appear under assistant answers</p>
-                                <p class="mt-2 text-sm leading-6 text-slate-600">Ask a question to retrieve matching chunks from the selected documents.</p>
-                            </div>
-                        </div>
-                    @endif
                 </div>
 
                 <div class="sticky bottom-0 z-10 min-w-0 border-t border-slate-200 bg-white p-4">
@@ -561,7 +549,6 @@
                 const formData = new FormData(messageForm);
 
                 document.querySelector('[data-empty-chat-state]')?.remove();
-                document.querySelector('[data-empty-sources-state]')?.remove();
 
                 const userNode = appendHtml(userMessageHtml(content));
                 messageInput.value = '';

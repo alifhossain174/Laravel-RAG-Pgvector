@@ -1,6 +1,6 @@
 # Linux Deployment Guide
 
-This guide prepares a Linux server to run DocuMind in production with PDF and DOCX extraction, scanned-PDF OCR, queues, Gemini embeddings, PostgreSQL, and pgvector.
+This guide prepares a Linux server to run DocuMind in production with PDF, DOCX, XLSX, and CSV extraction, scanned-PDF OCR, queues, Gemini embeddings, PostgreSQL, and pgvector.
 
 The commands below target Ubuntu/Debian-style servers. Adjust package names if you deploy on another distribution.
 
@@ -19,10 +19,10 @@ Install base tools:
 sudo apt install -y git unzip curl ca-certificates software-properties-common
 ```
 
-Install PHP and common Laravel extensions. The `php-zip`, `php-xml`, and `php-mbstring` packages are required for DOCX extraction with PhpOffice/PHPWord:
+Install PHP and common Laravel extensions. The `php-zip`, `php-xml`, and `php-mbstring` packages are required for DOCX extraction with PhpOffice/PHPWord and XLSX/CSV extraction with PhpOffice/PhpSpreadsheet. The `php-gd` package is commonly required by PhpSpreadsheet:
 
 ```bash
-sudo apt install -y php php-cli php-fpm php-pgsql php-mbstring php-xml php-curl php-zip php-bcmath php-intl
+sudo apt install -y php php-cli php-fpm php-pgsql php-mbstring php-xml php-curl php-zip php-bcmath php-intl php-gd
 ```
 
 Install Composer:
@@ -40,7 +40,7 @@ node --version
 npm --version
 ```
 
-Install Poppler and Tesseract OCR for PDF extraction and scanned-PDF fallback:
+Install Poppler and Tesseract OCR for PDF extraction and scanned-PDF fallback. XLSX and CSV extraction does not need a separate Linux binary:
 
 ```bash
 sudo apt install -y poppler-utils tesseract-ocr tesseract-ocr-eng
@@ -105,7 +105,7 @@ Install PHP dependencies:
 composer install --no-dev --optimize-autoloader
 ```
 
-This installs the Laravel dependencies, including PhpOffice/PHPWord for DOCX text extraction.
+This installs the Laravel dependencies, including PhpOffice/PHPWord for DOCX text extraction and PhpOffice/PhpSpreadsheet for XLSX and CSV text extraction.
 
 Install and build frontend assets:
 
@@ -353,6 +353,18 @@ Expected output:
 yes
 ```
 
+Check Composer autoload can see PhpSpreadsheet:
+
+```bash
+php artisan tinker --execute="echo class_exists('PhpOffice\\PhpSpreadsheet\\IOFactory') ? 'yes' : 'no';"
+```
+
+Expected output:
+
+```text
+yes
+```
+
 Check queue status:
 
 ```bash
@@ -364,12 +376,14 @@ tail -f storage/logs/worker.log
 
 1. Register a user.
 2. Verify the user's email.
-3. Upload a text-based PDF and confirm it becomes `Ready`.
-4. Upload a DOCX and confirm text extraction creates chunks.
-5. Upload a scanned PDF and confirm OCR processing creates chunks.
-6. Create a chat conversation scoped to the document.
-7. Ask a question that can be answered from the document.
-8. Confirm the answer includes source citations.
+3. Upload a text-based PDF and confirm it becomes `Ready` and chunks are created.
+4. Upload a scanned PDF and confirm OCR processing creates chunks.
+5. Upload a DOCX and confirm text extraction creates chunks.
+6. Upload an XLSX and confirm text extraction creates chunks.
+7. Upload a CSV and confirm text extraction creates chunks.
+8. Create a chat conversation scoped to the document.
+9. Ask a question that can be answered from the document.
+10. Confirm the answer includes source citations.
 
 ## Troubleshooting
 
@@ -378,6 +392,10 @@ If OCR says `tesseract` was not found, set `TESSERACT_PATH=/usr/bin/tesseract`, 
 If Poppler fails, confirm both `pdftotext` and `pdftoppm` are installed with `poppler-utils`.
 
 If DOCX extraction fails with missing class or zip/xml errors, run `composer install --no-dev --optimize-autoloader`, confirm `php-zip`, `php-xml`, and `php-mbstring` are installed, then restart PHP-FPM and queue workers.
+
+If XLSX or CSV extraction fails, confirm PhpSpreadsheet is installed with Composer and that `php-zip`, `php-xml`, `php-mbstring`, and `php-gd` are enabled.
+
+If CSV uploads fail validation, check the detected MIME type. Browsers and servers may report CSV files as `text/plain`, `text/csv`, `application/csv`, or `application/vnd.ms-excel`.
 
 If migrations fail on `vector`, confirm pgvector is installed and the database has:
 

@@ -177,7 +177,15 @@ class DocumentChunker
             return 'word_text_extraction';
         }
 
+        if ($methods === ['spreadsheet_text_extraction']) {
+            return 'spreadsheet_text_extraction';
+        }
+
         if (in_array('word_text_extraction', $methods, true)) {
+            return 'mixed_document_extraction';
+        }
+
+        if (in_array('spreadsheet_text_extraction', $methods, true)) {
             return 'mixed_document_extraction';
         }
 
@@ -229,7 +237,10 @@ class DocumentChunker
             $method = (string) ($page['extraction_method'] ?? 'native');
             $sourceType = (string) ($page['source_type'] ?? '');
             $section = (string) ($page['section'] ?? '');
-            $key = $pageNumber.'|'.$method.'|'.$sourceType.'|'.$section;
+            $sheetName = (string) ($page['sheet_name'] ?? '');
+            $rowStart = isset($page['row_start']) && is_numeric($page['row_start']) ? (int) $page['row_start'] : null;
+            $rowEnd = isset($page['row_end']) && is_numeric($page['row_end']) ? (int) $page['row_end'] : null;
+            $key = $pageNumber.'|'.$method.'|'.$sourceType.'|'.$section.'|'.$sheetName.'|'.$rowStart.'|'.$rowEnd;
 
             if (isset($seen[$key])) {
                 continue;
@@ -247,6 +258,18 @@ class DocumentChunker
 
             if ($section !== '') {
                 $source['section'] = $section;
+            }
+
+            if ($sheetName !== '') {
+                $source['sheet_name'] = $sheetName;
+            }
+
+            if ($rowStart !== null) {
+                $source['row_start'] = $rowStart;
+            }
+
+            if ($rowEnd !== null) {
+                $source['row_end'] = $rowEnd;
             }
 
             $unique[] = $source;
