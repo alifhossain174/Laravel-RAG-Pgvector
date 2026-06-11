@@ -1,23 +1,20 @@
 @php
     $title = 'Document Details';
-    $timeline = [
-        ['label' => 'Uploaded', 'step' => 1, 'statuses' => ['uploaded', 'processing', 'text_extracted', 'chunked', 'embedded', 'ready']],
-        ['label' => 'Text Extracted', 'step' => 2, 'statuses' => ['text_extracted', 'chunked', 'embedded', 'ready']],
-        ['label' => 'Chunks Created', 'step' => 3, 'statuses' => ['chunked', 'embedded', 'ready']],
-        ['label' => 'Embeddings Stored', 'step' => 4, 'statuses' => ['embedded', 'ready']],
-        ['label' => 'Ready for Chat', 'step' => 5, 'statuses' => ['ready']],
-    ];
 @endphp
 
 @extends('layouts.app')
 
 @section('content')
+    <div data-document-status-poller data-document-id="{{ $document->id }}" data-document-status-url="{{ route('documents.status', $document) }}" data-document-current-status="{{ $document->status }}">
     <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
             <h1 class="text-2xl font-semibold tracking-tight text-slate-950">{{ $document->displayTitle() }}</h1>
             <p class="mt-2 text-sm text-slate-600">Document details, processing status, and chunk previews.</p>
         </div>
         <div class="flex flex-col gap-3 sm:flex-row">
+            <a href="{{ route('chat.create') }}" data-document-chat-action data-document-ready-href="{{ route('chat.create') }}" aria-disabled="{{ $document->status === \App\Models\Document::STATUS_READY ? 'false' : 'true' }}" class="w-full rounded-lg bg-teal-600 px-4 py-2.5 text-center text-sm font-semibold text-white shadow-sm shadow-teal-200 hover:bg-teal-700 sm:w-auto {{ $document->status === \App\Models\Document::STATUS_READY ? '' : 'pointer-events-none cursor-not-allowed opacity-50' }}">
+                Start chat
+            </a>
             <form method="POST" action="{{ route('documents.destroy', $document) }}" onsubmit="return confirm('Delete this document and its stored file?');">
                 @csrf
                 @method('DELETE')
@@ -35,7 +32,9 @@
                     <p class="font-semibold text-slate-950">Document details</p>
                     <p class="mt-2 text-sm leading-6 text-slate-600">{{ $document->description ?: 'No description provided.' }}</p>
                 </div>
-                @include('partials.status-badge', ['status' => $document->status])
+                <span data-document-status-badge>
+                    @include('partials.status-badge', ['status' => $document->status, 'showSpinner' => true])
+                </span>
             </div>
             <dl class="mt-6 grid grid-cols-2 gap-4 text-sm">
                 <div class="rounded-lg bg-slate-50 p-4">
@@ -56,54 +55,33 @@
                 </div>
                 <div class="rounded-lg bg-slate-50 p-4">
                     <dt class="text-slate-500">Pages</dt>
-                    <dd class="mt-1 font-semibold text-slate-950">{{ $document->total_pages ?? '-' }}</dd>
+                    <dd class="mt-1 font-semibold text-slate-950" data-document-total-pages>{{ $document->total_pages ?? '-' }}</dd>
                 </div>
                 <div class="rounded-lg bg-slate-50 p-4">
                     <dt class="text-slate-500">Chunks</dt>
-                    <dd class="mt-1 font-semibold text-slate-950">{{ $document->total_chunks }}</dd>
+                    <dd class="mt-1 font-semibold text-slate-950" data-document-total-chunks>{{ $document->total_chunks }}</dd>
                 </div>
                 <div class="rounded-lg bg-slate-50 p-4">
                     <dt class="text-slate-500">Processed</dt>
-                    <dd class="mt-1 font-semibold text-slate-950">{{ $document->processed_at?->format('M j, Y g:i A') ?? '-' }}</dd>
+                    <dd class="mt-1 font-semibold text-slate-950" data-document-processed-at>{{ $document->processed_at?->format('M j, Y g:i A') ?? '-' }}</dd>
                 </div>
                 <div class="rounded-lg bg-slate-50 p-4">
                     <dt class="text-slate-500">Status</dt>
-                    <dd class="mt-1 font-semibold text-slate-950">{{ $document->statusLabel() }}</dd>
+                    <dd class="mt-1 font-semibold text-slate-950" data-document-status-label>{{ $document->statusLabel() }}</dd>
                 </div>
             </dl>
 
-            @if ($document->status === 'failed' && $document->failed_reason)
-                <div class="mt-5 rounded-lg border border-rose-200 bg-rose-50 p-4">
-                    <p class="text-sm font-semibold text-rose-800">Failure reason</p>
-                    <p class="mt-2 text-sm leading-6 text-rose-700">{{ $document->failed_reason }}</p>
-                </div>
-            @endif
+            <div class="mt-5 rounded-lg border border-rose-200 bg-rose-50 p-4 {{ $document->status === 'failed' && $document->failed_reason ? '' : 'hidden' }}" data-document-failed-reason>
+                <p class="text-sm font-semibold text-rose-800">Failure reason</p>
+                <p class="mt-2 text-sm leading-6 text-rose-700" data-document-failed-reason-text>{{ $document->failed_reason }}</p>
+            </div>
         </div>
 
         <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <p class="font-semibold text-slate-950">Processing timeline</p>
-            <ol class="mt-5 space-y-4">
-                @foreach ($timeline as $item)
-                    @php
-                        $complete = in_array($document->status, $item['statuses'], true);
-                    @endphp
-                    <li class="flex gap-3">
-                        <span class="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold ring-1 {{ $complete ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-slate-50 text-slate-500 ring-slate-200' }}">
-                            {{ $complete ? 'OK' : $item['step'] }}
-                        </span>
-                        <div>
-                            <p class="text-sm font-semibold text-slate-950">{{ $item['label'] }}</p>
-                            <p class="mt-1 text-sm text-slate-500">
-                                @if ($complete)
-                                    Completed for the current document status.
-                                @else
-                                    Waiting for this step to complete.
-                                @endif
-                            </p>
-                        </div>
-                    </li>
-                @endforeach
-            </ol>
+            <div data-document-processing-timeline>
+                @include('partials.document-processing-timeline', ['document' => $document])
+            </div>
         </div>
     </section>
 
@@ -111,7 +89,7 @@
         <div class="flex flex-col justify-between gap-2 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center">
             <h2 class="font-semibold text-slate-950">Chunk preview</h2>
             <p class="text-sm text-slate-500">
-                Showing first {{ $chunks->count() }} of {{ $document->total_chunks }} chunks
+                Showing first {{ $chunks->count() }} of <span data-document-total-chunks>{{ $document->total_chunks }}</span> chunks
             </p>
         </div>
         <div class="divide-y divide-slate-100">
@@ -146,4 +124,5 @@
             @endforelse
         </div>
     </section>
+    </div>
 @endsection

@@ -1,5 +1,17 @@
 @php
     $status = strtolower($status ?? 'processing');
+    $showSpinner = $showSpinner ?? false;
+    $processingStatuses = ['uploaded', 'processing', 'text_extracted', 'chunked', 'embedded'];
+    $labels = [
+        'uploaded' => 'Uploaded',
+        'ready' => 'Ready',
+        'processing' => 'Processing',
+        'text_extracted' => 'Text Extracted',
+        'chunked' => 'Chunks Created',
+        'embedded' => 'Embeddings Stored',
+        'pending' => 'Pending',
+        'failed' => 'Failed',
+    ];
     $styles = [
         'uploaded' => 'bg-cyan-50 text-cyan-700 ring-cyan-200',
         'ready' => 'bg-emerald-50 text-emerald-700 ring-emerald-200',
@@ -12,6 +24,9 @@
     ];
 @endphp
 
-<span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold capitalize ring-1 ring-inset {{ $styles[$status] ?? $styles['processing'] }}">
-    {{ str_replace('_', ' ', $status) }}
+<span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset {{ $styles[$status] ?? $styles['processing'] }}">
+    @if ($showSpinner && in_array($status, $processingStatuses, true))
+        <span class="size-3 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden="true"></span>
+    @endif
+    {{ $labels[$status] ?? str($status)->replace('_', ' ')->title() }}
 </span>

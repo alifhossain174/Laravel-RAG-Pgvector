@@ -64,13 +64,15 @@
             </div>
             <div class="divide-y divide-slate-100">
                 @forelse ($recentDocuments as $document)
-                    <div class="p-5">
+                    <div class="p-5" data-document-status-poller data-document-id="{{ $document->id }}" data-document-status-url="{{ route('documents.status', $document) }}" data-document-current-status="{{ $document->status }}">
                         <div class="flex items-start justify-between gap-3">
                             <div>
                                 <p class="text-sm font-semibold text-slate-950">{{ $document->displayTitle() }}</p>
                                 <p class="mt-1 text-sm text-slate-500">{{ $document->formattedFileSize() }} - {{ $document->created_at->diffForHumans() }}</p>
                             </div>
-                            @include('partials.status-badge', ['status' => $document->status])
+                            <span data-document-status-badge>
+                                @include('partials.status-badge', ['status' => $document->status, 'showSpinner' => true])
+                            </span>
                         </div>
                     </div>
                 @empty

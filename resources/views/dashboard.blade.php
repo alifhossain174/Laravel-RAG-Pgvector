@@ -50,14 +50,14 @@
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                 @forelse ($recentDocuments as $document)
-                    <tr>
+                    <tr data-document-status-poller data-document-id="{{ $document->id }}" data-document-status-url="{{ route('documents.status', $document) }}" data-document-current-status="{{ $document->status }}">
                         <td class="px-5 py-4">
                             <a href="{{ route('documents.show', $document) }}" class="font-medium text-slate-950 hover:text-teal-700">{{ $document->displayTitle() }}</a>
                             <p class="mt-1 text-xs text-slate-500">{{ $document->formattedFileSize() }}</p>
                         </td>
-                        <td class="px-5 py-4">@include('partials.status-badge', ['status' => $document->status])</td>
-                        <td class="px-5 py-4 text-slate-600">{{ $document->total_pages ?? '-' }}</td>
-                        <td class="px-5 py-4 text-slate-600">{{ $document->total_chunks }}</td>
+                        <td class="px-5 py-4"><span data-document-status-badge>@include('partials.status-badge', ['status' => $document->status, 'showSpinner' => true])</span></td>
+                        <td class="px-5 py-4 text-slate-600" data-document-total-pages>{{ $document->total_pages ?? '-' }}</td>
+                        <td class="px-5 py-4 text-slate-600" data-document-total-chunks>{{ $document->total_chunks }}</td>
                         <td class="px-5 py-4 text-slate-600">{{ $document->created_at->diffForHumans() }}</td>
                     </tr>
                 @empty

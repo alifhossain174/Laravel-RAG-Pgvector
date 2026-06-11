@@ -69,22 +69,24 @@
                                 </summary>
                                 <div class="mt-3 max-h-72 space-y-3 overflow-y-auto">
                                     @forelse ($scopedDocuments as $document)
-                                        <article class="rounded-lg border border-slate-200 bg-white p-3">
+                                        <article class="rounded-lg border border-slate-200 bg-white p-3" data-document-status-poller data-document-id="{{ $document->id }}" data-document-status-url="{{ route('documents.status', $document) }}" data-document-current-status="{{ $document->status }}">
                                             <div class="flex items-start justify-between gap-3">
                                                 <div class="min-w-0">
                                                     <p class="truncate text-sm font-semibold text-slate-950">{{ $document->displayTitle() }}</p>
-                                                    <p class="mt-1 text-xs text-slate-500">Processed {{ $document->processed_at?->diffForHumans() ?? '-' }}</p>
+                                                    <p class="mt-1 text-xs text-slate-500" data-document-processed-at data-document-processed-at-format="relative" data-document-processed-at-prefix="Processed ">Processed {{ $document->processed_at?->diffForHumans() ?? '-' }}</p>
                                                 </div>
-                                                @include('partials.status-badge', ['status' => $document->status])
+                                                <span data-document-status-badge>
+                                                    @include('partials.status-badge', ['status' => $document->status, 'showSpinner' => true])
+                                                </span>
                                             </div>
                                             <dl class="mt-3 grid grid-cols-2 gap-2 text-xs">
                                                 <div class="rounded-lg bg-slate-50 p-2">
                                                     <dt class="text-slate-500">Pages</dt>
-                                                    <dd class="mt-1 font-semibold text-slate-900">{{ $document->total_pages ?? '-' }}</dd>
+                                                    <dd class="mt-1 font-semibold text-slate-900" data-document-total-pages>{{ $document->total_pages ?? '-' }}</dd>
                                                 </div>
                                                 <div class="rounded-lg bg-slate-50 p-2">
                                                     <dt class="text-slate-500">Chunks</dt>
-                                                    <dd class="mt-1 font-semibold text-slate-900">{{ $document->total_chunks }}</dd>
+                                                    <dd class="mt-1 font-semibold text-slate-900" data-document-total-chunks>{{ $document->total_chunks }}</dd>
                                                 </div>
                                             </dl>
                                         </article>
@@ -216,7 +218,7 @@
 
                     <div class="mt-5">
                         <div class="flex items-center justify-between gap-3">
-                            <p class="text-sm font-medium text-slate-700">Ready documents</p>
+                            <p class="text-sm font-medium text-slate-700">Documents</p>
                             <label class="flex items-center gap-2 text-sm font-semibold text-teal-700">
                                 <input id="selectAllDocuments" type="checkbox" class="size-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500">
                                 <span>Select all documents</span>
@@ -225,16 +227,22 @@
                         <div class="mt-2 rounded-lg border border-slate-200">
                             <div class="max-h-72 divide-y divide-slate-100 overflow-y-auto">
                                 @forelse ($documents as $document)
-                                    <label class="flex items-start gap-3 px-4 py-3 text-sm hover:bg-slate-50">
-                                        <input name="document_ids[]" value="{{ $document->id }}" type="checkbox" class="document-choice mt-1 size-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500" @checked(in_array($document->id, old('document_ids', [])))>
+                                    <label class="flex items-start gap-3 px-4 py-3 text-sm hover:bg-slate-50" data-document-status-poller data-document-id="{{ $document->id }}" data-document-status-url="{{ route('documents.status', $document) }}" data-document-current-status="{{ $document->status }}">
+                                        <input name="document_ids[]" value="{{ $document->id }}" type="checkbox" class="document-choice mt-1 size-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500 disabled:cursor-not-allowed disabled:opacity-50" data-document-chat-action @checked(in_array($document->id, old('document_ids', []))) @disabled($document->status !== \App\Models\Document::STATUS_READY)>
                                         <span>
                                             <span class="block font-medium text-slate-950">{{ $document->displayTitle() }}</span>
-                                            <span class="mt-1 block text-xs text-slate-500">{{ $document->total_pages ?? '-' }} pages - {{ $document->statusLabel() }}</span>
+                                            <span class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                                                <span><span data-document-total-pages>{{ $document->total_pages ?? '-' }}</span> pages</span>
+                                                <span data-document-status-label>{{ $document->statusLabel() }}</span>
+                                                <span data-document-status-badge>
+                                                    @include('partials.status-badge', ['status' => $document->status, 'showSpinner' => true])
+                                                </span>
+                                            </span>
                                         </span>
                                     </label>
                                 @empty
                                     <div class="px-4 py-6 text-sm text-slate-500">
-                                        No ready documents yet. Upload and process documents before creating a document-scoped conversation.
+                                        No documents yet. Upload and process documents before creating a document-scoped conversation.
                                     </div>
                                 @endforelse
                             </div>
@@ -500,7 +508,9 @@
 
             selectAll?.addEventListener('change', (event) => {
                 documentChoices.forEach((choice) => {
-                    choice.checked = event.target.checked;
+                    if (!choice.disabled) {
+                        choice.checked = event.target.checked;
+                    }
                 });
 
                 if (event.target.checked && selectedScope) {

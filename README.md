@@ -23,6 +23,7 @@ The project is built as a practical Retrieval-Augmented Generation application: 
 - Gemini answer generation using retrieved context
 - Citation metadata stored with assistant messages
 - App-side Gemini free-tier quota tracking for shared API keys
+- Live document processing progress with loading indicators
 - Non-reloading chat submission with Blade-rendered AJAX responses
 - Clean Blade + Tailwind CSS SaaS interface
 - Feature and unit test coverage for the core flows
@@ -161,6 +162,33 @@ Conversation Question
    +--> LlmService
            - calls Gemini generateContent
            - returns answer and metadata
+```
+
+### Live Document Processing Status
+
+DocuMind updates document processing progress in real time using lightweight client-side polling. When a document is uploaded, status badges, counts, timelines, and chat actions update without requiring a full page refresh.
+
+Processing stages include:
+
+- Uploaded
+- Text Extracted
+- Chunks Created
+- Embeddings Stored
+- Ready for Chat
+
+The browser polls the authenticated document status endpoint every few seconds while a document is still processing. Polling automatically pauses when the tab is hidden, resumes with an immediate refresh when the tab is visible again, backs off after temporary network errors, and stops when a document reaches a final state: Ready or Failed. This keeps the feature lightweight and production-friendly without requiring WebSockets.
+
+```text
+Queue job updates document status in database
+   |
+   v
+Status API endpoint returns latest status
+   |
+   v
+Browser polling updates status badges and timelines
+   |
+   v
+Polling stops when document is Ready or Failed
 ```
 
 ## Main Data Model
@@ -482,6 +510,17 @@ php artisan queue:work
 7. Create a conversation with one or more ready documents.
 8. Ask a question related to the selected document content.
 9. Confirm the assistant response includes source citation cards.
+
+Live status checklist:
+
+- Upload PDF, scanned PDF, DOCX, XLSX, and CSV files and watch status update without a full page reload.
+- Confirm document detail, document cards, dashboard recent documents, and the chat document selector update live.
+- Confirm processing documents show spinners and ready documents enable chat actions or selector checkboxes.
+- Confirm failed documents show the failed badge and failure reason when available.
+- Confirm polling stops after Ready or Failed.
+- Confirm hidden browser tabs pause polling and refresh when visible again.
+- Confirm duplicate UI instances of the same document do not create duplicate status requests.
+- Confirm pages still render correctly if JavaScript is disabled or fails.
 
 ## Testing Commands
 

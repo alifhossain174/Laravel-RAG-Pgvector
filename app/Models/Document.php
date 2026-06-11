@@ -117,6 +117,15 @@ class Document extends Model
 
     public function statusLabel(): string
     {
-        return str($this->status)->replace('_', ' ')->title()->toString();
+        return match ($this->status) {
+            self::STATUS_UPLOADED => 'Uploaded',
+            self::STATUS_PROCESSING => 'Processing',
+            self::STATUS_TEXT_EXTRACTED => 'Text Extracted',
+            self::STATUS_CHUNKED => 'Chunks Created',
+            self::STATUS_EMBEDDED => 'Embeddings Stored',
+            self::STATUS_READY => 'Ready',
+            self::STATUS_FAILED => 'Failed',
+            default => str($this->status)->replace('_', ' ')->title()->toString(),
+        };
     }
 }

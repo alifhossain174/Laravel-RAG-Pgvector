@@ -101,11 +101,13 @@ class ConversationController extends Controller
             ]);
         }
 
-        $readyDocuments = $request->user()
+        $documents = $request->user()
             ->documents()
-            ->where('status', Document::STATUS_READY)
             ->latest()
             ->get();
+        $readyDocuments = $documents
+            ->where('status', Document::STATUS_READY)
+            ->values();
 
         $scopedDocuments = collect();
 
@@ -123,7 +125,7 @@ class ConversationController extends Controller
         return view('chat.show', [
             'conversations' => $conversations,
             'conversation' => $activeConversation,
-            'documents' => $readyDocuments,
+            'documents' => $documents,
             'scopedDocuments' => $scopedDocuments,
             'search' => $search,
             'openCreateConversationModal' => $openCreateConversationModal,

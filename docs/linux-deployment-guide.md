@@ -251,6 +251,27 @@ sudo supervisorctl status
 
 OCR can be slow for large scanned PDFs, so the worker uses `--timeout=0`. If you use a different queue backend, keep its visibility timeout longer than the largest expected OCR job.
 
+### Live Status Updates
+
+DocuMind uses lightweight browser polling for live document processing status updates.
+
+No additional services such as WebSockets, Laravel Reverb, Redis Pub/Sub, or Socket servers are required for this feature.
+
+The polling system automatically pauses when the browser tab is hidden and stops when a document reaches `Ready` or `Failed` status.
+
+```text
+Queue job updates document status in database
+   |
+   v
+Status API endpoint returns latest status
+   |
+   v
+Browser polling updates status badges and timelines
+   |
+   v
+Polling stops when document is Ready or Failed
+```
+
 ## 8. Configure Nginx
 
 Create a site config:

@@ -17,6 +17,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/documents/upload', [DocumentController::class, 'create'])->name('documents.create');
     Route::post('/documents', [DocumentController::class, 'store'])->name('documents.store');
     Route::get('/documents', [DocumentController::class, 'index'])->name('documents.index');
+    Route::get('/documents/{document}/status', [DocumentController::class, 'status'])->name('documents.status');
     Route::get('/documents/{document}', [DocumentController::class, 'show'])->name('documents.show');
     Route::delete('/documents/{document}', [DocumentController::class, 'destroy'])->name('documents.destroy');
 

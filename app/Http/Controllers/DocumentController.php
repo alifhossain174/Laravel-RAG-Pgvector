@@ -122,6 +122,35 @@ class DocumentController extends Controller
         ]);
     }
 
+    public function status(Request $request, Document $document): JsonResponse
+    {
+        $this->authorize('view', $document);
+
+        $document->refresh();
+
+        return response()->json([
+            'id' => $document->id,
+            'status' => $document->status,
+            'status_label' => $this->statusLabel($document),
+            'status_badge_html' => view('partials.status-badge', [
+                'status' => $document->status,
+                'showSpinner' => true,
+            ])->render(),
+            'timeline_html' => view('partials.document-processing-timeline', [
+                'document' => $document,
+            ])->render(),
+            'total_pages' => $document->total_pages,
+            'total_chunks' => $document->total_chunks,
+            'processed_at' => $document->processed_at?->format('M j, Y g:i A'),
+            'processed_at_relative' => $document->processed_at?->diffForHumans(),
+            'failed_reason' => $document->failed_reason,
+            'is_ready' => $document->status === Document::STATUS_READY,
+            'is_failed' => $document->status === Document::STATUS_FAILED,
+            'can_chat' => $document->status === Document::STATUS_READY,
+            'updated_at' => $document->updated_at?->toIso8601String(),
+        ]);
+    }
+
     public function destroy(Document $document): RedirectResponse
     {
         $this->authorize('delete', $document);
@@ -137,5 +166,10 @@ class DocumentController extends Controller
     private function caseInsensitiveLikeOperator($query): string
     {
         return $query->getConnection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+    }
+
+    private function statusLabel(Document $document): string
+    {
+        return $document->statusLabel();
     }
 }

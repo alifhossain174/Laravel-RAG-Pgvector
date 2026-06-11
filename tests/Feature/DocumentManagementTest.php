@@ -501,6 +501,67 @@ class DocumentManagementTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_document_status_endpoint_returns_live_status_payload(): void
+    {
+        $user = User::factory()->create();
+
+        $document = $user->documents()->create([
+            'title' => 'Live Status',
+            'original_filename' => 'live-status.pdf',
+            'file_path' => 'documents/'.$user->id.'/live-status.pdf',
+            'status' => Document::STATUS_CHUNKED,
+            'total_pages' => 10,
+            'total_chunks' => 24,
+            'processed_at' => now(),
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->getJson(route('documents.status', $document));
+
+        $response
+            ->assertOk()
+            ->assertJson([
+                'id' => $document->id,
+                'status' => Document::STATUS_CHUNKED,
+                'status_label' => 'Chunks Created',
+                'total_pages' => 10,
+                'total_chunks' => 24,
+                'failed_reason' => null,
+                'is_ready' => false,
+                'is_failed' => false,
+                'can_chat' => false,
+            ])
+            ->assertJsonStructure([
+                'status_badge_html',
+                'timeline_html',
+                'processed_at',
+                'processed_at_relative',
+                'updated_at',
+            ]);
+
+        $this->assertStringContainsString('Chunks Created', $response->json('status_badge_html'));
+        $this->assertStringContainsString('Embeddings Stored', $response->json('timeline_html'));
+    }
+
+    public function test_document_status_endpoint_requires_document_owner(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+
+        $document = $otherUser->documents()->create([
+            'title' => 'Private Status',
+            'original_filename' => 'private-status.pdf',
+            'file_path' => 'documents/'.$otherUser->id.'/private-status.pdf',
+            'status' => Document::STATUS_PROCESSING,
+        ]);
+
+        $this
+            ->actingAs($user)
+            ->getJson(route('documents.status', $document))
+            ->assertForbidden();
+    }
+
     public function test_document_routes_use_ulid_instead_of_database_id(): void
     {
         $user = User::factory()->create();
