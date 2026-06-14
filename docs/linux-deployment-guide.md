@@ -1,6 +1,6 @@
 # Linux Deployment Guide
 
-This guide prepares a Linux server to run DocuMind in production with PDF, DOCX, XLSX, and CSV extraction, scanned-PDF OCR, queues, Gemini embeddings, PostgreSQL, and pgvector.
+This guide prepares a Linux server to run DocuMind in production with PDF, DOCX, XLSX, and CSV extraction, scanned-PDF OCR, queues, Gemini embeddings, PostgreSQL, pgvector, and the admin console.
 
 The commands below target Ubuntu/Debian-style servers. Adjust package names if you deploy on another distribution.
 
@@ -166,6 +166,10 @@ RAG_RETRIEVAL_MAX_DISTANCE=
 RAG_MESSAGE_RATE_LIMIT_PER_MINUTE=20
 ```
 
+These `.env` values are the deployment defaults. After the app is running, non-secret platform settings can be managed from `/admin/settings`, including upload/chat/registration switches, upload limits, RAG values, AI model names, OCR thresholds, and default user limits.
+
+Do not store secrets in admin settings. Keep `GEMINI_API_KEY`, database credentials, mail credentials, and server paths in `.env`.
+
 Confirm binary paths:
 
 ```bash
@@ -197,7 +201,24 @@ Run migrations:
 php artisan migrate --force
 ```
 
-The migrations create the `document_chunks.embedding` pgvector column and the HNSW cosine index used by RAG retrieval.
+The migrations create the admin flags on users, usage logs, user limits, app settings, the `document_chunks.embedding` pgvector column, and the HNSW cosine index used by RAG retrieval.
+
+Promote the first admin after a user account exists:
+
+```bash
+php artisan tinker
+```
+
+```php
+$user = App\Models\User::where('email', 'admin@example.com')->firstOrFail();
+$user->forceFill(['is_admin' => true])->save();
+```
+
+Replace `admin@example.com` with the real email address. If `firstOrFail()` reports no query results, create or verify the user first, or query the existing emails with:
+
+```bash
+php artisan tinker --execute="App\Models\User::query()->orderBy('email')->pluck('email')->each(fn ($email) => print($email.PHP_EOL));"
+```
 
 Cache production configuration:
 
@@ -212,6 +233,12 @@ Whenever `.env` changes, refresh the cache and restart workers:
 ```bash
 php artisan optimize:clear
 php artisan config:cache
+php artisan queue:restart
+```
+
+When admin settings that affect queued processing are changed, restart workers so long-running queue processes pick up the latest settings:
+
+```bash
 php artisan queue:restart
 ```
 
@@ -393,18 +420,30 @@ sudo supervisorctl status
 tail -f storage/logs/worker.log
 ```
 
+Check the admin console:
+
+1. Sign in as the promoted admin.
+2. Open `/admin`.
+3. Open `/admin/system-health`.
+4. Confirm database, pgvector, HNSW, jobs, failed jobs, storage, Gemini configuration, Poppler, and OCR checks are healthy or understood warnings.
+5. Open `/admin/settings` and confirm non-secret settings render. Save once if you want rows created in `app_settings`.
+
 ## 10. Test The Application Flow
 
 1. Register a user.
 2. Verify the user's email.
-3. Upload a text-based PDF and confirm it becomes `Ready` and chunks are created.
-4. Upload a scanned PDF and confirm OCR processing creates chunks.
-5. Upload a DOCX and confirm text extraction creates chunks.
-6. Upload an XLSX and confirm text extraction creates chunks.
-7. Upload a CSV and confirm text extraction creates chunks.
-8. Create a chat conversation scoped to the document.
-9. Ask a question that can be answered from the document.
-10. Confirm the answer includes source citations.
+3. Promote one verified user to admin.
+4. Open `/admin/system-health` and resolve failed checks before inviting users.
+5. Review `/admin/settings`, especially uploads, chat, registration, upload limits, OCR settings, and default user limits.
+6. Upload a text-based PDF and confirm it becomes `Ready` and chunks are created.
+7. Upload a scanned PDF and confirm OCR processing creates chunks.
+8. Upload a DOCX and confirm text extraction creates chunks.
+9. Upload an XLSX and confirm text extraction creates chunks.
+10. Upload a CSV and confirm text extraction creates chunks.
+11. Create a chat conversation scoped to the document.
+12. Ask a question that can be answered from the document.
+13. Confirm the answer includes source citations.
+14. Confirm `/admin/usage-logs`, `/admin/documents`, `/admin/users`, `/admin/queues`, and `/admin/failed-jobs` render without exposing secrets, queue payloads, or private file paths.
 
 ## Troubleshooting
 
@@ -425,3 +464,9 @@ CREATE EXTENSION IF NOT EXISTS vector;
 ```
 
 If scanned PDFs process slowly, that is expected. Increase server CPU, reduce `OCR_PDF_DPI`, or run more queue workers only if the server has enough CPU and memory.
+
+If `/admin/settings` changes do not appear to affect document processing, run `php artisan queue:restart` so existing workers reload the application.
+
+If `/admin/system-health` warns about the HNSW index, confirm the pgvector package supports HNSW and rerun migrations after the extension is available.
+
+If registration was disabled before promoting an admin, create the user through an existing trusted path or temporarily re-enable registration in `app_settings` with a database client, then promote the account.

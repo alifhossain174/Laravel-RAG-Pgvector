@@ -23,6 +23,10 @@ The project is built as a practical Retrieval-Augmented Generation application: 
 - Gemini answer generation using retrieved context
 - Citation metadata stored with assistant messages
 - App-side Gemini free-tier quota tracking for shared API keys
+- Admin console with dashboard metrics, user management, document management, queues, failed jobs, usage logs, usage limits, system health, and global settings
+- Account suspension enforcement and admin role controls
+- Product usage tracking and per-user/default quota controls
+- Global settings for platform switches, upload limits, RAG tuning, AI model options, OCR thresholds, and default user limits
 - Live document processing progress with loading indicators
 - Non-reloading chat submission with Blade-rendered AJAX responses
 - Clean Blade + Tailwind CSS SaaS interface
@@ -87,6 +91,40 @@ The project is built as a practical Retrieval-Augmented Generation application: 
 17. `LlmService` asks Gemini to answer using only the retrieved context.
 18. The assistant response and citation metadata are saved to the conversation.
 19. The chat UI updates the answer, conversation metadata, and Gemini quota card without a full page reload.
+
+## Admin Console
+
+DocuMind includes an admin area at `/admin` for verified users with `is_admin = true`.
+
+Admin sections:
+
+- Dashboard overview with user, document, chunk, conversation, message, queue, storage, file type, and recent activity metrics
+- Users list and user detail pages with search, filters, role changes, suspension/activation, usage summaries, latest documents/conversations, and per-user limit editing
+- Documents panel with search, filters, safe document metadata, chunk previews, retry, regenerate embeddings, reprocess, and delete actions
+- Queue dashboard and failed-job management with retry/forget actions and sanitized exception previews
+- Usage logs with filters and sanitized metadata/error detail
+- System health page for database, PostgreSQL/pgvector/HNSW, queue tables, storage writability, Gemini config, PDF tools, OCR tools, and latest ready/failed documents
+- Settings page for global platform controls, upload limits, RAG settings, AI settings, OCR settings, and default user limits
+
+Admin safety rules:
+
+- Admin routes require authentication, email verification, non-suspended status, and admin access.
+- State-changing admin actions use POST, PATCH, or DELETE with CSRF protection.
+- The current admin cannot suspend themselves or remove their own admin role.
+- Admin screens avoid showing API keys, queue payloads, raw server paths, and full private file paths.
+
+Promote the first admin after creating a user:
+
+```bash
+php artisan tinker
+```
+
+```php
+$user = App\Models\User::where('email', 'admin@example.com')->firstOrFail();
+$user->forceFill(['is_admin' => true])->save();
+```
+
+Replace `admin@example.com` with an email address that already exists in the `users` table.
 
 ## RAG Architecture
 
@@ -195,7 +233,7 @@ Polling stops when document is Ready or Failed
 
 ### Users
 
-Users own documents and conversations. Email verification is required before accessing protected application pages.
+Users own documents and conversations. Email verification is required before accessing protected application pages. Admin and suspension state is stored with `is_admin` and `is_suspended`.
 
 ### Documents
 
@@ -258,6 +296,18 @@ Supported scopes:
 
 Messages store user and assistant chat history. Assistant messages include citation metadata in `metadata.sources`.
 
+### Usage Logs
+
+`ai_usage_logs` stores product and AI activity such as document uploads, processing milestones, OCR events, embedding events, chat requests, chat responses, and chat failures. Sensitive metadata and error messages are sanitized before display in admin views.
+
+### User Limits
+
+`user_limits` stores optional per-user quotas for daily chat, daily embeddings, monthly uploads, document count, storage, file size, allowed MIME types, unlimited accounts, and notes. Blank user-limit fields fall back to global default limits.
+
+### App Settings
+
+`app_settings` stores non-secret global settings. It is used for platform controls, upload limits, RAG tuning, AI model names and numeric parameters, OCR thresholds, and default user limits. Secrets such as `GEMINI_API_KEY`, database credentials, and mail credentials remain in `.env`.
+
 ## Important Services
 
 - `PdfExtractorService` - extracts and cleans PDF text with page awareness.
@@ -273,6 +323,10 @@ Messages store user and assistant chat history. Assistant messages include citat
 - `RagRetrievalService` - retrieves relevant chunks using pgvector.
 - `RagPromptBuilder` - builds concise grounded prompts from retrieved context.
 - `LlmService` - generates answers with Gemini using retrieved chunks.
+- `UsageTrackingService` - safely records document, embedding, OCR, and chat activity.
+- `LimitService` - enforces user and default product quotas.
+- `SettingsService` - reads and caches non-secret global admin settings.
+- `SystemHealthService` - builds sanitized health-check results for the admin health page.
 
 ## Gemini Quota Tracking
 
@@ -332,6 +386,17 @@ Protected and email-verified routes:
 - `/chat/{conversation}`
 - `/profile`
 
+Admin routes:
+
+- `/admin`
+- `/admin/users`
+- `/admin/documents`
+- `/admin/queues`
+- `/admin/failed-jobs`
+- `/admin/usage-logs`
+- `/admin/system-health`
+- `/admin/settings`
+
 Documents and conversations use ULIDs in routes so sequential database IDs are not exposed.
 
 ## UI Overview
@@ -350,6 +415,7 @@ The interface is designed as a focused SaaS dashboard:
 - AJAX message submission that appends answers without reloading the page
 - Floating toast notifications for success/error messages
 - Sidebar Gemini quota card for shared free-tier usage
+- Admin console using the same Blade + Tailwind theme
 - Responsive sidebar and mobile navigation
 
 ## Security and Authorization
@@ -363,6 +429,8 @@ The interface is designed as a focused SaaS dashboard:
 - Retrieval is scoped to the current conversation and current user.
 - API keys are read from environment variables and are not exposed in code or logs.
 - Password reset and verification emails use Laravel's notification system.
+- Suspended users are blocked from normal app and admin routes while still being able to log out and view the suspension notice.
+- Admin settings never store secrets; provider keys and infrastructure credentials stay in `.env`.
 
 ## Requirements
 
@@ -414,6 +482,17 @@ Run migrations:
 
 ```bash
 php artisan migrate
+```
+
+Promote an existing verified user to the first admin:
+
+```bash
+php artisan tinker
+```
+
+```php
+$user = App\Models\User::where('email', 'admin@example.com')->firstOrFail();
+$user->forceFill(['is_admin' => true])->save();
 ```
 
 Build frontend assets:
@@ -473,6 +552,8 @@ RAG_RETRIEVAL_MAX_DISTANCE=
 RAG_MESSAGE_RATE_LIMIT_PER_MINUTE=20
 ```
 
+Many non-secret values above can also be adjusted from `/admin/settings` after deployment. Environment values remain the fallback defaults and are still the only place for secrets such as `GEMINI_API_KEY`.
+
 Mail configuration example:
 
 ```env
@@ -510,6 +591,9 @@ php artisan queue:work
 7. Create a conversation with one or more ready documents.
 8. Ask a question related to the selected document content.
 9. Confirm the assistant response includes source citation cards.
+10. Promote an admin user and open `/admin`.
+11. Check `/admin/system-health`.
+12. Review `/admin/settings`, then save once to seed editable setting rows if desired.
 
 Live status checklist:
 
@@ -521,6 +605,15 @@ Live status checklist:
 - Confirm hidden browser tabs pause polling and refresh when visible again.
 - Confirm duplicate UI instances of the same document do not create duplicate status requests.
 - Confirm pages still render correctly if JavaScript is disabled or fails.
+
+Admin checklist:
+
+- Confirm non-admin users cannot access `/admin`.
+- Confirm an admin can search/filter users and documents.
+- Confirm an admin cannot suspend their own account or remove their own admin role.
+- Confirm failed job views do not show queue payloads, secrets, or raw stack traces.
+- Confirm `/admin/settings` can disable uploads, chat, or registration and that users see friendly validation messages.
+- Confirm `/admin/system-health` reports database, pgvector, queue, storage, Gemini, PDF, and OCR status without showing API keys or private paths.
 
 ## Testing Commands
 
@@ -582,6 +675,8 @@ LIMIT 10;
 - Gemini quota tracking is local to this Laravel app and cannot see API-key usage from outside the app.
 - Shared Gemini quota is global and first-come-first-served; per-user quota distribution is not implemented.
 - Multi-turn memory optimization is intentionally kept simple for the MVP.
+- Changing embedding model dimensions after embeddings already exist requires a planned database/vector re-embedding workflow.
+- Global settings are cached; long-running queue workers may need a restart after settings changes that affect processing behavior.
 
 ## Future Improvements
 
@@ -591,7 +686,7 @@ LIMIT 10;
 - Conversation renaming and document scope editing
 - Advanced retrieval reranking
 - Better table-aware parsing
-- Usage analytics and admin dashboards
+- Richer admin reporting and export tools
 - Deployment pipeline and CI workflow
 
 ## Why This Project Matters
