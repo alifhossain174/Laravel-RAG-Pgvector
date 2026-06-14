@@ -4,6 +4,8 @@ namespace App\Jobs;
 
 use App\Models\Document;
 use App\Services\EmbeddingService;
+use App\Services\LimitService;
+use App\Services\UsageTrackingService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -26,8 +28,11 @@ class GenerateDocumentEmbeddingsJob implements ShouldQueue
         return [10, 30, 60];
     }
 
-    public function handle(EmbeddingService $embeddings): void
+    public function handle(EmbeddingService $embeddings, ?UsageTrackingService $usage = null, ?LimitService $limits = null): void
     {
+        $usage ??= app(UsageTrackingService::class);
+        $limits ??= app(LimitService::class);
+
         $document = Document::query()->find($this->documentId);
 
         if (! $document) {
@@ -55,7 +60,51 @@ class GenerateDocumentEmbeddingsJob implements ShouldQueue
             return;
         }
 
+        $missingEmbeddingCount = $document->chunks()->whereNull('embedding')->count();
+        $limitCheck = $limits->canGenerateEmbeddings($document->user, max(1, $missingEmbeddingCount));
+
+        if (! $limitCheck['allowed']) {
+            Log::info('Embedding generation skipped because the owning user exceeded product limits.', [
+                'document_id' => $document->id,
+                'user_id' => $document->user_id,
+                'message' => $limitCheck['message'],
+            ]);
+
+            $document->forceFill([
+                'status' => Document::STATUS_FAILED,
+                'failed_reason' => $limitCheck['message'],
+                'processed_at' => now(),
+            ])->save();
+
+            $usage->log([
+                'user_id' => $document->user_id,
+                'document_id' => $document->id,
+                'action_type' => 'embedding_failed',
+                'provider' => $embeddings->provider(),
+                'model' => $embeddings->model(),
+                'status' => 'failed',
+                'error_message' => $limitCheck['message'],
+                'metadata' => [
+                    'reason' => 'product_limit_exceeded',
+                    'requested_embeddings' => $missingEmbeddingCount,
+                ],
+            ]);
+
+            return;
+        }
+
         try {
+            $usage->log([
+                'user_id' => $document->user_id,
+                'document_id' => $document->id,
+                'action_type' => 'embedding_generation_started',
+                'provider' => $embeddings->provider(),
+                'model' => $embeddings->model(),
+                'metadata' => [
+                    'missing_embedding_chunks' => $missingEmbeddingCount,
+                ],
+            ]);
+
             $query = $document->chunks()
                 ->whereNull('embedding')
                 ->orderBy('chunk_index');
@@ -70,7 +119,7 @@ class GenerateDocumentEmbeddingsJob implements ShouldQueue
                 return;
             }
 
-            $query->chunkById(25, function ($chunks) use ($embeddings) {
+            $query->chunkById(25, function ($chunks) use ($document, $embeddings, $usage) {
                 foreach ($chunks as $chunk) {
                     $embedding = $embeddings->embedText($chunk->content);
 
@@ -80,6 +129,20 @@ class GenerateDocumentEmbeddingsJob implements ShouldQueue
                         provider: $embeddings->provider(),
                         model: $embeddings->model()
                     );
+
+                    $usage->log([
+                        'user_id' => $document->user_id,
+                        'document_id' => $document->id,
+                        'action_type' => 'embedding_generated',
+                        'provider' => $embeddings->provider(),
+                        'model' => $embeddings->model(),
+                        'input_tokens' => $chunk->token_count,
+                        'embedding_count' => 1,
+                        'metadata' => [
+                            'chunk_id' => $chunk->id,
+                            'chunk_index' => $chunk->chunk_index,
+                        ],
+                    ]);
 
                     usleep(200_000);
                 }
@@ -109,6 +172,19 @@ class GenerateDocumentEmbeddingsJob implements ShouldQueue
                     'failed_reason' => $exception->getMessage(),
                     'processed_at' => now(),
                 ]);
+
+            $usage->log([
+                'user_id' => $document->user_id,
+                'document_id' => $document->id,
+                'action_type' => 'embedding_failed',
+                'provider' => $embeddings->provider(),
+                'model' => $embeddings->model(),
+                'status' => 'failed',
+                'error_message' => $exception->getMessage(),
+                'metadata' => [
+                    'status_code' => $exception->getCode(),
+                ],
+            ]);
 
             if ($exception->getCode() === 429 || $exception->getCode() >= 500) {
                 throw $exception;

@@ -21,8 +21,8 @@ class DocumentTextExtractorService
         private readonly ExcelExtractorService $excelExtractor,
         private readonly TextExtractionDecisionService $decisionService,
         private readonly OcrService $ocr,
-    ) {
-    }
+        private readonly UsageTrackingService $usage,
+    ) {}
 
     /**
      * @return array<int, array{page: int|null, content: string, metadata?: array<string, mixed>}>
@@ -91,12 +91,33 @@ class DocumentTextExtractorService
             'page_count' => $decision['page_count'],
         ]);
 
+        $this->usage->log([
+            'user_id' => $document->user_id,
+            'document_id' => $document->id,
+            'action_type' => 'ocr_started',
+            'metadata' => [
+                'reason' => $decision['reason'],
+                'native_character_count' => $decision['character_count'],
+                'native_page_count' => $decision['page_count'],
+            ],
+        ]);
+
         $pages = $this->ocr->extractPages($absolutePath);
         $ocrDecision = $this->decisionService->decide($pages);
 
         if ($ocrDecision['requires_ocr']) {
             throw new RuntimeException('OCR completed but extracted text is still too short to chunk.');
         }
+
+        $this->usage->log([
+            'user_id' => $document->user_id,
+            'document_id' => $document->id,
+            'action_type' => 'ocr_completed',
+            'metadata' => [
+                'character_count' => $ocrDecision['character_count'],
+                'page_count' => $ocrDecision['page_count'],
+            ],
+        ]);
 
         return $pages;
     }

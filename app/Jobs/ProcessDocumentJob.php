@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\Document;
 use App\Services\DocumentChunker;
 use App\Services\DocumentTextExtractorService;
+use App\Services\UsageTrackingService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -26,8 +27,10 @@ class ProcessDocumentJob implements ShouldQueue
         public readonly bool $dispatchEmbeddings = true
     ) {}
 
-    public function handle(DocumentTextExtractorService $extractor, DocumentChunker $chunker): void
+    public function handle(DocumentTextExtractorService $extractor, DocumentChunker $chunker, ?UsageTrackingService $usage = null): void
     {
+        $usage ??= app(UsageTrackingService::class);
+
         $document = Document::query()->find($this->documentId);
 
         if (! $document) {
@@ -54,6 +57,12 @@ class ProcessDocumentJob implements ShouldQueue
                 'total_chunks' => 0,
             ])->save();
 
+            $usage->log([
+                'user_id' => $document->user_id,
+                'document_id' => $document->id,
+                'action_type' => 'document_processing_started',
+            ]);
+
             $document->chunks()->delete();
 
             $absolutePath = Storage::disk('local')->path($document->file_path);
@@ -63,6 +72,17 @@ class ProcessDocumentJob implements ShouldQueue
             }
 
             $pages = $extractor->extract($document, $absolutePath);
+
+            $usage->log([
+                'user_id' => $document->user_id,
+                'document_id' => $document->id,
+                'action_type' => 'text_extracted',
+                'metadata' => [
+                    'page_count' => $this->totalPages($pages),
+                    'character_count' => $this->characterCount($pages),
+                    'extraction_methods' => $this->extractionMethods($pages),
+                ],
+            ]);
 
             $chunks = $chunker->chunkPages($pages);
 
@@ -87,6 +107,16 @@ class ProcessDocumentJob implements ShouldQueue
                     'failed_reason' => null,
                 ])->save();
             });
+
+            $usage->log([
+                'user_id' => $document->user_id,
+                'document_id' => $document->id,
+                'action_type' => 'chunks_created',
+                'metadata' => [
+                    'chunk_count' => count($chunks),
+                    'page_count' => $this->totalPages($pages),
+                ],
+            ]);
 
             if ($this->dispatchEmbeddings) {
                 GenerateDocumentEmbeddingsJob::dispatch($document->id);
@@ -131,5 +161,27 @@ class ProcessDocumentJob implements ShouldQueue
             ->values();
 
         return $pageNumbers->isEmpty() ? null : $pageNumbers->count();
+    }
+
+    private function characterCount(array $pages): int
+    {
+        return collect($pages)
+            ->sum(fn (array $page): int => mb_strlen((string) ($page['content'] ?? '')));
+    }
+
+    private function extractionMethods(array $pages): array
+    {
+        return collect($pages)
+            ->flatMap(function (array $page): array {
+                $metadata = is_array($page['metadata'] ?? null) ? $page['metadata'] : [];
+
+                return array_filter([
+                    $metadata['extraction_method'] ?? null,
+                    $metadata['source'] ?? null,
+                ]);
+            })
+            ->unique()
+            ->values()
+            ->all();
     }
 }

@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Jobs\ProcessDocumentJob;
 use App\Models\Document;
+use App\Services\LimitService;
+use App\Services\UsageTrackingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,7 +28,7 @@ class DocumentController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, UsageTrackingService $usage, LimitService $limits): RedirectResponse
     {
         $file = $request->file('document');
 
@@ -51,6 +53,14 @@ class DocumentController extends Controller
             'document.mimetypes' => 'Please upload a PDF, DOCX, XLSX, or CSV document.',
         ]);
 
+        $limitCheck = $limits->canUpload($request->user(), $file);
+
+        if (! $limitCheck['allowed']) {
+            throw ValidationException::withMessages([
+                'document' => $limitCheck['message'],
+            ]);
+        }
+
         $path = $file->store('documents/'.$request->user()->id, 'local');
 
         $document = $request->user()->documents()->create([
@@ -63,6 +73,17 @@ class DocumentController extends Controller
             'status' => Document::STATUS_UPLOADED,
             'total_pages' => null,
             'total_chunks' => 0,
+        ]);
+
+        $usage->log([
+            'user_id' => $request->user()->id,
+            'document_id' => $document->id,
+            'action_type' => 'document_uploaded',
+            'metadata' => [
+                'mime_type' => $document->mime_type,
+                'extension' => strtolower($file->getClientOriginalExtension()),
+                'file_size' => $document->file_size,
+            ],
         ]);
 
         ProcessDocumentJob::dispatch($document->id);

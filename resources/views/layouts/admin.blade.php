@@ -14,12 +14,12 @@
 @php
     $adminItems = [
         ['label' => 'Dashboard', 'href' => route('admin.dashboard'), 'active' => ['admin.dashboard'], 'available' => true],
-        ['label' => 'Users', 'href' => '#', 'active' => [], 'available' => false],
-        ['label' => 'Documents', 'href' => '#', 'active' => [], 'available' => false],
-        ['label' => 'Usage Logs', 'href' => '#', 'active' => [], 'available' => false],
-        ['label' => 'Usage Limits', 'href' => '#', 'active' => [], 'available' => false],
-        ['label' => 'Queues', 'href' => '#', 'active' => [], 'available' => false],
-        ['label' => 'Failed Jobs', 'href' => '#', 'active' => [], 'available' => false],
+        ['label' => 'Users', 'href' => route('admin.users.index'), 'active' => ['admin.users.*'], 'available' => true],
+        ['label' => 'Documents', 'href' => route('admin.documents.index'), 'active' => ['admin.documents.*'], 'available' => true],
+        ['label' => 'Usage Logs', 'href' => route('admin.usage-logs.index'), 'active' => ['admin.usage-logs.*'], 'available' => true],
+        ['label' => 'Usage Limits', 'href' => route('admin.users.index'), 'active' => [], 'available' => true],
+        ['label' => 'Queues', 'href' => route('admin.queues.index'), 'active' => ['admin.queues.*'], 'available' => true],
+        ['label' => 'Failed Jobs', 'href' => route('admin.failed-jobs.index'), 'active' => ['admin.failed-jobs.*'], 'available' => true],
         ['label' => 'System Health', 'href' => '#', 'active' => [], 'available' => false],
         ['label' => 'Settings', 'href' => '#', 'active' => [], 'available' => false],
     ];

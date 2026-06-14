@@ -6,8 +6,10 @@ use App\Exceptions\GeminiRateLimitExceededException;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Services\GeminiRateLimitService;
+use App\Services\LimitService;
 use App\Services\LlmService;
 use App\Services\RagRetrievalService;
+use App\Services\UsageTrackingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,8 +27,9 @@ class ConversationMessageController extends Controller
         RagRetrievalService $retrieval,
         LlmService $llm,
         GeminiRateLimitService $rateLimits,
-    ): RedirectResponse|JsonResponse
-    {
+        UsageTrackingService $usage,
+        LimitService $limits,
+    ): RedirectResponse|JsonResponse {
         $this->authorize('view', $conversation);
 
         $this->ensureMessageRateLimit($request, $conversation);
@@ -34,6 +37,14 @@ class ConversationMessageController extends Controller
         $validated = $request->validate([
             'content' => ['required', 'string', 'max:4000'],
         ]);
+
+        $limitCheck = $limits->canSendChatMessage($conversation->user);
+
+        if (! $limitCheck['allowed']) {
+            throw ValidationException::withMessages([
+                'content' => $limitCheck['message'],
+            ]);
+        }
 
         $quota = $rateLimits->chatQuestionCheck($validated['content']);
 
@@ -43,18 +54,31 @@ class ConversationMessageController extends Controller
             ]);
         }
 
-        DB::transaction(function () use ($conversation, $validated): void {
+        $userMessage = DB::transaction(function () use ($conversation, $validated): Message {
             if (! $conversation->messages()->exists() && $this->hasGenericTitle($conversation)) {
                 $conversation->forceFill([
                     'title' => $this->titleFromQuestion($validated['content']),
                 ])->save();
             }
 
-            $conversation->messages()->create([
+            return $conversation->messages()->create([
                 'role' => Message::ROLE_USER,
                 'content' => $validated['content'],
             ]);
         });
+
+        $usage->log([
+            'user_id' => $conversation->user_id,
+            'conversation_id' => $conversation->id,
+            'message_id' => $userMessage->id,
+            'action_type' => 'chat_request',
+            'provider' => $this->llmProvider($llm),
+            'model' => $this->llmModel($llm),
+            'input_tokens' => $rateLimits->estimateTextTokens($validated['content']),
+            'metadata' => [
+                'question_length' => mb_strlen($validated['content']),
+            ],
+        ]);
 
         $assistantMessage = null;
 
@@ -69,6 +93,18 @@ class ConversationMessageController extends Controller
                         'sources' => [],
                     ]
                 );
+
+                $usage->log([
+                    'user_id' => $conversation->user_id,
+                    'conversation_id' => $conversation->id,
+                    'message_id' => $assistantMessage->id,
+                    'action_type' => 'chat_response',
+                    'provider' => $this->llmProvider($llm),
+                    'model' => $this->llmModel($llm),
+                    'metadata' => [
+                        'retrieved_chunks' => 0,
+                    ],
+                ]);
 
                 if ($request->expectsJson()) {
                     return $this->jsonMessageResponse($conversation, $assistantMessage, $rateLimits);
@@ -89,6 +125,7 @@ class ConversationMessageController extends Controller
                     ->all();
 
                 $result = $llm->answerWithContext($validated['content'], $chunks, $history);
+                $usageMetadata = data_get($result, 'raw.usageMetadata');
 
                 $assistantMessage = $this->storeAssistantMessage(
                     conversation: $conversation,
@@ -103,6 +140,23 @@ class ConversationMessageController extends Controller
                         'sources' => $this->formatSources($chunks),
                     ]
                 );
+
+                $usage->log([
+                    'user_id' => $conversation->user_id,
+                    'conversation_id' => $conversation->id,
+                    'message_id' => $assistantMessage->id,
+                    'action_type' => 'chat_response',
+                    'provider' => $result['provider'],
+                    'model' => $result['model'],
+                    'input_tokens' => data_get($usageMetadata, 'promptTokenCount'),
+                    'output_tokens' => data_get($usageMetadata, 'candidatesTokenCount'),
+                    'metadata' => [
+                        'retrieved_chunks' => count($chunks),
+                        'finish_reason' => data_get($result, 'raw.finishReason'),
+                        'continuation_used' => (bool) data_get($result, 'raw.continuationUsed', false),
+                        'truncated' => (bool) data_get($result, 'raw.truncated', false),
+                    ],
+                ]);
             }
         } catch (GeminiRateLimitExceededException $exception) {
             $assistantMessage = $this->storeAssistantMessage(
@@ -114,6 +168,20 @@ class ConversationMessageController extends Controller
                     'rate_limited' => true,
                 ]
             );
+
+            $usage->log([
+                'user_id' => $conversation->user_id,
+                'conversation_id' => $conversation->id,
+                'message_id' => $assistantMessage->id,
+                'action_type' => 'chat_failed',
+                'provider' => $this->llmProvider($llm),
+                'model' => $this->llmModel($llm),
+                'status' => 'failed',
+                'error_message' => $exception->getMessage(),
+                'metadata' => [
+                    'rate_limited' => true,
+                ],
+            ]);
         } catch (Throwable $exception) {
             Log::error('RAG chat answer generation failed.', [
                 'conversation_id' => $conversation->id,
@@ -131,6 +199,20 @@ class ConversationMessageController extends Controller
                     'error' => true,
                 ]
             );
+
+            $usage->log([
+                'user_id' => $conversation->user_id,
+                'conversation_id' => $conversation->id,
+                'message_id' => $assistantMessage->id,
+                'action_type' => 'chat_failed',
+                'provider' => $this->llmProvider($llm),
+                'model' => $this->llmModel($llm),
+                'status' => 'failed',
+                'error_message' => $exception->getMessage(),
+                'metadata' => [
+                    'status_code' => $exception->getCode(),
+                ],
+            ]);
         }
 
         if ($request->expectsJson() && $assistantMessage) {
@@ -239,5 +321,23 @@ class ConversationMessageController extends Controller
             ->trim(' .,;:-')
             ->whenEmpty(fn () => str('New Conversation'))
             ->toString();
+    }
+
+    private function llmProvider(LlmService $llm): string
+    {
+        try {
+            return $llm->provider();
+        } catch (Throwable) {
+            return (string) config('services.llm.provider', 'gemini');
+        }
+    }
+
+    private function llmModel(LlmService $llm): string
+    {
+        try {
+            return $llm->model();
+        } catch (Throwable) {
+            return (string) config('services.gemini.chat_model', 'gemini-2.5-flash');
+        }
     }
 }
