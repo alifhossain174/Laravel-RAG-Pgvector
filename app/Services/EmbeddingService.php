@@ -11,8 +11,8 @@ class EmbeddingService
 {
     public function __construct(
         private readonly GeminiRateLimitService $rateLimits,
-    ) {
-    }
+        private readonly SettingsService $settings,
+    ) {}
 
     public function embedText(string $text): array
     {
@@ -26,7 +26,7 @@ class EmbeddingService
 
     public function dimensions(): int
     {
-        return (int) config('services.gemini.embedding_dimensions', 1536);
+        return $this->settings->embeddingDimensions();
     }
 
     public function provider(): string
@@ -36,7 +36,7 @@ class EmbeddingService
 
     public function model(): string
     {
-        return (string) config('services.gemini.embedding_model', 'gemini-embedding-2');
+        return $this->settings->embeddingModel();
     }
 
     private function embed(string $input): array

@@ -9,6 +9,7 @@ use App\Services\GeminiRateLimitService;
 use App\Services\LimitService;
 use App\Services\LlmService;
 use App\Services\RagRetrievalService;
+use App\Services\SettingsService;
 use App\Services\UsageTrackingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -29,10 +30,17 @@ class ConversationMessageController extends Controller
         GeminiRateLimitService $rateLimits,
         UsageTrackingService $usage,
         LimitService $limits,
+        SettingsService $settings,
     ): RedirectResponse|JsonResponse {
         $this->authorize('view', $conversation);
 
-        $this->ensureMessageRateLimit($request, $conversation);
+        if (! $settings->chatEnabled()) {
+            throw ValidationException::withMessages([
+                'content' => 'Chat is currently disabled.',
+            ]);
+        }
+
+        $this->ensureMessageRateLimit($request, $conversation, $settings);
 
         $validated = $request->validate([
             'content' => ['required', 'string', 'max:4000'],
@@ -285,9 +293,9 @@ class ConversationMessageController extends Controller
             ->all();
     }
 
-    private function ensureMessageRateLimit(Request $request, Conversation $conversation): void
+    private function ensureMessageRateLimit(Request $request, Conversation $conversation, SettingsService $settings): void
     {
-        $limit = (int) config('services.rag.message_rate_limit_per_minute', 20);
+        $limit = $settings->messageRateLimitPerMinute();
 
         if ($limit <= 0) {
             return;

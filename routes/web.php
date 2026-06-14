@@ -3,6 +3,8 @@
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AdminDocumentController;
 use App\Http\Controllers\Admin\AdminQueueController;
+use App\Http\Controllers\Admin\AdminSettingsController;
+use App\Http\Controllers\Admin\AdminSystemHealthController;
 use App\Http\Controllers\Admin\AdminUsageLogController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\AdminUserLimitController;
@@ -77,6 +79,11 @@ Route::prefix('admin')
 
         Route::get('/usage-logs', [AdminUsageLogController::class, 'index'])->name('usage-logs.index');
         Route::get('/usage-logs/{aiUsageLog}', [AdminUsageLogController::class, 'show'])->name('usage-logs.show');
+
+        Route::get('/system-health', [AdminSystemHealthController::class, 'index'])->name('system-health.index');
+
+        Route::get('/settings', [AdminSettingsController::class, 'index'])->name('settings.index');
+        Route::patch('/settings', [AdminSettingsController::class, 'update'])->name('settings.update');
     });
 
 require __DIR__.'/auth.php';

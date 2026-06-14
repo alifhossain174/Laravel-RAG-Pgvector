@@ -20,8 +20,8 @@
         ['label' => 'Usage Limits', 'href' => route('admin.users.index'), 'active' => [], 'available' => true],
         ['label' => 'Queues', 'href' => route('admin.queues.index'), 'active' => ['admin.queues.*'], 'available' => true],
         ['label' => 'Failed Jobs', 'href' => route('admin.failed-jobs.index'), 'active' => ['admin.failed-jobs.*'], 'available' => true],
-        ['label' => 'System Health', 'href' => '#', 'active' => [], 'available' => false],
-        ['label' => 'Settings', 'href' => '#', 'active' => [], 'available' => false],
+        ['label' => 'System Health', 'href' => route('admin.system-health.index'), 'active' => ['admin.system-health.*'], 'available' => true],
+        ['label' => 'Settings', 'href' => route('admin.settings.index'), 'active' => ['admin.settings.*'], 'available' => true],
     ];
 @endphp
 

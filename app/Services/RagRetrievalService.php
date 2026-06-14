@@ -10,9 +10,13 @@ use Illuminate\Support\Facades\DB;
 
 class RagRetrievalService
 {
+    private SettingsService $settings;
+
     public function __construct(
         private readonly EmbeddingService $embeddings,
+        ?SettingsService $settings = null,
     ) {
+        $this->settings = $settings ?? app(SettingsService::class);
     }
 
     /**
@@ -108,10 +112,10 @@ class RagRetrievalService
             return $this->clampLimit($limit);
         }
 
-        $configuredLimit = (int) config('services.rag.top_k', 6);
+        $configuredLimit = $this->settings->ragTopK();
 
         if ($this->isBroadSummaryQuestion($question)) {
-            $configuredLimit = max($configuredLimit, (int) config('services.rag.summary_top_k', 12));
+            $configuredLimit = max($configuredLimit, $this->settings->ragSummaryTopK());
         }
 
         return $this->clampLimit($configuredLimit);
@@ -119,13 +123,7 @@ class RagRetrievalService
 
     private function maxDistance(): ?float
     {
-        $value = config('services.rag.retrieval_max_distance');
-
-        if ($value === null || $value === '') {
-            return null;
-        }
-
-        return (float) $value;
+        return $this->settings->ragRetrievalMaxDistance();
     }
 
     private function clampLimit(int $limit): int
@@ -153,9 +151,7 @@ class RagRetrievalService
 
     private function maxContextChars(): int
     {
-        $value = (int) config('services.rag.max_context_chars', 24000);
-
-        return max(1000, $value);
+        return $this->settings->ragMaxContextChars();
     }
 
     /**

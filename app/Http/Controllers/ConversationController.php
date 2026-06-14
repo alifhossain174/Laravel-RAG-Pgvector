@@ -5,11 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\Conversation;
 use App\Models\Document;
 use App\Services\GeminiRateLimitService;
+use App\Services\SettingsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class ConversationController extends Controller
@@ -24,8 +26,14 @@ class ConversationController extends Controller
         return $this->viewChat($request, openCreateConversationModal: true);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, SettingsService $settings): RedirectResponse
     {
+        if (! $settings->chatEnabled()) {
+            throw ValidationException::withMessages([
+                'title' => 'Chat is currently disabled.',
+            ]);
+        }
+
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'scope' => ['required', Rule::in(Conversation::SCOPES)],

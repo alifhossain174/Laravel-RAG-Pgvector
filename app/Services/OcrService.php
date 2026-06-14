@@ -11,12 +11,12 @@ class OcrService
 {
     public function __construct(
         private readonly PdfImageConverterService $converter,
-    ) {
-    }
+        private readonly SettingsService $settings,
+    ) {}
 
     public function enabled(): bool
     {
-        return (bool) config('services.ocr.enabled', true);
+        return $this->settings->ocrEnabled();
     }
 
     /**
@@ -116,7 +116,7 @@ class OcrService
 
     private function languages(): array
     {
-        $language = config('services.ocr.language', 'eng');
+        $language = $this->settings->ocrLanguage();
 
         if (! is_string($language) || trim($language) === '') {
             return [];

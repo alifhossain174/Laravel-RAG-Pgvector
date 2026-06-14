@@ -6,6 +6,10 @@ use Throwable;
 
 class TextExtractionDecisionService
 {
+    public function __construct(
+        private readonly SettingsService $settings,
+    ) {}
+
     /**
      * @return array{
      *     requires_ocr: bool,
@@ -106,12 +110,12 @@ class TextExtractionDecisionService
 
     private function minimumTextCharacters(): int
     {
-        return max(1, (int) config('services.ocr.minimum_text_characters', 20));
+        return $this->settings->ocrMinimumTextCharacters();
     }
 
     private function minimumTextDensityPerPage(): int
     {
-        return max(1, (int) config('services.ocr.minimum_text_density_per_page', 10));
+        return $this->settings->ocrMinimumTextDensityPerPage();
     }
 
     private function decision(

@@ -20,21 +20,26 @@ class LimitService
         'is_unlimited' => false,
     ];
 
+    public function __construct(
+        private readonly SettingsService $settings,
+    ) {}
+
     public function limitsFor(User $user): array
     {
         $limit = $user->relationLoaded('limit') ? $user->limit : $user->limit()->first();
+        $defaults = $this->defaults();
 
         if (! $limit) {
-            return self::DEFAULTS;
+            return $defaults;
         }
 
         return [
-            'daily_chat_limit' => $limit->daily_chat_limit ?? self::DEFAULTS['daily_chat_limit'],
-            'daily_embedding_limit' => $limit->daily_embedding_limit ?? self::DEFAULTS['daily_embedding_limit'],
-            'monthly_upload_limit' => $limit->monthly_upload_limit ?? self::DEFAULTS['monthly_upload_limit'],
-            'max_documents' => $limit->max_documents ?? self::DEFAULTS['max_documents'],
-            'max_storage_mb' => $limit->max_storage_mb ?? self::DEFAULTS['max_storage_mb'],
-            'max_file_size_mb' => $limit->max_file_size_mb ?? self::DEFAULTS['max_file_size_mb'],
+            'daily_chat_limit' => $limit->daily_chat_limit ?? $defaults['daily_chat_limit'],
+            'daily_embedding_limit' => $limit->daily_embedding_limit ?? $defaults['daily_embedding_limit'],
+            'monthly_upload_limit' => $limit->monthly_upload_limit ?? $defaults['monthly_upload_limit'],
+            'max_documents' => $limit->max_documents ?? $defaults['max_documents'],
+            'max_storage_mb' => $limit->max_storage_mb ?? $defaults['max_storage_mb'],
+            'max_file_size_mb' => $limit->max_file_size_mb ?? $defaults['max_file_size_mb'],
             'allowed_mime_types' => $limit->allowed_mime_types,
             'is_unlimited' => $limit->is_unlimited,
         ];
@@ -132,7 +137,7 @@ class LimitService
 
     public function defaults(): array
     {
-        return self::DEFAULTS;
+        return array_merge(self::DEFAULTS, $this->settings->defaultUserLimits());
     }
 
     private function canUseFileSize(User $user, int $bytes): array

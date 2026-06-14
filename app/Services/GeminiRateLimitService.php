@@ -9,6 +9,10 @@ use Illuminate\Support\Str;
 
 class GeminiRateLimitService
 {
+    public function __construct(
+        private readonly SettingsService $settings,
+    ) {}
+
     public function consumeOrFail(string $model, int $tokens, string $label): void
     {
         $status = $this->statusForModel($model, $label);
@@ -41,8 +45,8 @@ class GeminiRateLimitService
 
     public function chatQuestionCheck(string $question): array
     {
-        $embeddingModel = (string) config('services.gemini.embedding_model', 'gemini-embedding-2');
-        $chatModel = (string) config('services.gemini.chat_model', 'gemini-2.5-flash');
+        $embeddingModel = $this->settings->embeddingModel();
+        $chatModel = $this->settings->chatModel();
         $embeddingTokens = $this->estimateTextTokens($question);
         $chatTokens = $this->estimatedChatTokens($question);
 
@@ -67,11 +71,11 @@ class GeminiRateLimitService
     public function chatSnapshot(): array
     {
         $embeddingStatus = $this->statusForModel(
-            (string) config('services.gemini.embedding_model', 'gemini-embedding-2'),
+            $this->settings->embeddingModel(),
             'Gemini Embedding'
         );
         $chatStatus = $this->statusForModel(
-            (string) config('services.gemini.chat_model', 'gemini-2.5-flash'),
+            $this->settings->chatModel(),
             'Gemini chat'
         );
 
@@ -130,8 +134,8 @@ class GeminiRateLimitService
 
     private function estimatedChatTokens(string $question): int
     {
-        $contextTokens = (int) ceil(((int) config('services.rag.max_context_chars', 24000)) / 4);
-        $outputTokens = (int) config('services.llm.max_output_tokens', 3000);
+        $contextTokens = (int) ceil($this->settings->ragMaxContextChars() / 4);
+        $outputTokens = $this->settings->maxOutputTokens();
 
         return $this->estimateTextTokens($question) + $contextTokens + $outputTokens;
     }

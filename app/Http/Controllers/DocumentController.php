@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Jobs\ProcessDocumentJob;
 use App\Models\Document;
 use App\Services\LimitService;
+use App\Services\SettingsService;
 use App\Services\UsageTrackingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -28,8 +29,14 @@ class DocumentController extends Controller
         ]);
     }
 
-    public function store(Request $request, UsageTrackingService $usage, LimitService $limits): RedirectResponse
+    public function store(Request $request, UsageTrackingService $usage, LimitService $limits, SettingsService $settings): RedirectResponse
     {
+        if (! $settings->uploadsEnabled()) {
+            throw ValidationException::withMessages([
+                'document' => 'Document uploads are currently disabled.',
+            ]);
+        }
+
         $file = $request->file('document');
 
         if ($file && strtolower($file->getClientOriginalExtension()) === 'doc') {
@@ -38,19 +45,24 @@ class DocumentController extends Controller
             ]);
         }
 
+        $allowedExtensions = $settings->allowedUploadExtensions();
+        $allowedMimeTypes = $settings->allowedUploadMimeTypes();
+        $allowedLabel = $settings->allowedUploadLabel() ?: 'supported';
+
         $validated = $request->validate([
             'title' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'document' => [
                 'required',
                 'file',
-                'mimes:pdf,docx,xlsx,csv',
-                'mimetypes:application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,application/csv,text/plain,application/vnd.ms-excel',
-                'max:20480',
+                'mimes:'.implode(',', $allowedExtensions),
+                'mimetypes:'.implode(',', $allowedMimeTypes),
+                'max:'.$settings->maxUploadKilobytes(),
             ],
         ], [
-            'document.mimes' => 'Please upload a PDF, DOCX, XLSX, or CSV document.',
-            'document.mimetypes' => 'Please upload a PDF, DOCX, XLSX, or CSV document.',
+            'document.mimes' => "Please upload a {$allowedLabel} document.",
+            'document.mimetypes' => "Please upload a {$allowedLabel} document.",
+            'document.max' => 'Please upload a document no larger than '.$settings->maxUploadMegabytes().' MB.',
         ]);
 
         $limitCheck = $limits->canUpload($request->user(), $file);

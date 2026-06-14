@@ -12,8 +12,8 @@ class LlmService
     public function __construct(
         private readonly RagPromptBuilder $promptBuilder,
         private readonly GeminiRateLimitService $rateLimits,
-    ) {
-    }
+        private readonly SettingsService $settings,
+    ) {}
 
     /**
      * @param  array<int, array{
@@ -110,17 +110,17 @@ class LlmService
 
     public function model(): string
     {
-        return (string) config('services.gemini.chat_model', 'gemini-2.5-flash');
+        return $this->settings->chatModel();
     }
 
     private function temperature(): float
     {
-        return (float) config('services.llm.temperature', 0.2);
+        return $this->settings->llmTemperature();
     }
 
     private function maxOutputTokens(): int
     {
-        return (int) config('services.llm.max_output_tokens', 3000);
+        return $this->settings->maxOutputTokens();
     }
 
     private function continuationAttempts(): int
@@ -244,5 +244,4 @@ class LlmService
 
         return is_string($finishReason) ? $finishReason : null;
     }
-
 }

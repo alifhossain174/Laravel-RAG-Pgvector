@@ -12,6 +12,10 @@ use Throwable;
 
 class PdfImageConverterService
 {
+    public function __construct(
+        private readonly SettingsService $settings,
+    ) {}
+
     /**
      * @return array{
      *     temporary_directory: string,
@@ -113,7 +117,7 @@ class PdfImageConverterService
 
     private function dpi(): int
     {
-        return max(72, (int) config('services.ocr.pdf_dpi', 200));
+        return $this->settings->ocrPdfDpi();
     }
 
     private function timeout(): int
