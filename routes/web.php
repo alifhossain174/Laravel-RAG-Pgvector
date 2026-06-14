@@ -1,17 +1,24 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\UserSuspensionController;
 use App\Http\Controllers\ConversationController;
 use App\Http\Controllers\ConversationMessageController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SuspendedAccountController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
 })->name('home');
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::get('/account/suspended', SuspendedAccountController::class)
+    ->middleware('auth')
+    ->name('account.suspended');
+
+Route::middleware(['auth', 'verified', 'not_suspended'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
     Route::get('/documents/upload', [DocumentController::class, 'create'])->name('documents.create');
@@ -32,5 +39,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
+
+Route::prefix('admin')
+    ->name('admin.')
+    ->middleware(['auth', 'verified', 'not_suspended', 'admin'])
+    ->group(function () {
+        Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
+        Route::patch('/users/{user}/suspension', [UserSuspensionController::class, 'update'])->name('users.suspension.update');
+        Route::delete('/users/{user}/suspension', [UserSuspensionController::class, 'destroy'])->name('users.suspension.destroy');
+    });
 
 require __DIR__.'/auth.php';

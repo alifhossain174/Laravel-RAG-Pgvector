@@ -24,9 +24,7 @@ class ProcessDocumentJob implements ShouldQueue
     public function __construct(
         public readonly int $documentId,
         public readonly bool $dispatchEmbeddings = true
-    )
-    {
-    }
+    ) {}
 
     public function handle(DocumentTextExtractorService $extractor, DocumentChunker $chunker): void
     {
@@ -35,6 +33,15 @@ class ProcessDocumentJob implements ShouldQueue
         if (! $document) {
             Log::info('Document processing skipped because document no longer exists.', [
                 'document_id' => $this->documentId,
+            ]);
+
+            return;
+        }
+
+        if ($document->user()->where('is_suspended', true)->exists()) {
+            Log::info('Document processing skipped because the owning user is suspended.', [
+                'document_id' => $document->id,
+                'user_id' => $document->user_id,
             ]);
 
             return;

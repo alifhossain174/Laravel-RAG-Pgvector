@@ -19,9 +19,7 @@ class GenerateDocumentEmbeddingsJob implements ShouldQueue
 
     public int $tries = 3;
 
-    public function __construct(public readonly int $documentId)
-    {
-    }
+    public function __construct(public readonly int $documentId) {}
 
     public function backoff(): array
     {
@@ -35,6 +33,15 @@ class GenerateDocumentEmbeddingsJob implements ShouldQueue
         if (! $document) {
             Log::info('Embedding generation skipped because document no longer exists.', [
                 'document_id' => $this->documentId,
+            ]);
+
+            return;
+        }
+
+        if ($document->user()->where('is_suspended', true)->exists()) {
+            Log::info('Embedding generation skipped because the owning user is suspended.', [
+                'document_id' => $document->id,
+                'user_id' => $document->user_id,
             ]);
 
             return;
@@ -63,7 +70,7 @@ class GenerateDocumentEmbeddingsJob implements ShouldQueue
                 return;
             }
 
-            $query->chunkById(25, function ($chunks) use ($document, $embeddings) {
+            $query->chunkById(25, function ($chunks) use ($embeddings) {
                 foreach ($chunks as $chunk) {
                     $embedding = $embeddings->embedText($chunk->content);
 
