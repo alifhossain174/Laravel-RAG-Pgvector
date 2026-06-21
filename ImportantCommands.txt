@@ -1,0 +1,36 @@
+Copy-Item .env .env.backup
+Copy-Item .env.docker.example .env
+# Add GEMINI_API_KEY to .env
+
+docker compose build (Builds the custom PHP image from docker/php/Dockerfile)
+docker compose up -d (Starts these containers in the background: app, nginx, postgres, queue)
+
+docker compose exec app composer install (Runs composer install inside the running PHP container)
+docker compose exec app php artisan key:generate (Generates Laravel’s APP_KEY and writes it into .env)
+
+docker compose run --rm node npm install (Starts a temporary Node container and installs packages from package.json)
+docker compose run --rm node npm run build (Creates production-ready CSS and JavaScript files in public/build)
+
+# For live Vite development instead: docker compose --profile frontend up -d node
+
+docker compose exec app php artisan migrate (Runs Laravel migrations against the Docker PostgreSQL container)
+docker compose restart queue
+
+Open the application at: http://localhost:8080
+
+
+==== To switch back to windows based Xampp setup ====
+docker compose --profile frontend down
+Copy-Item .env.backup .env
+
+
+==== After initial setup, daily startup is simply ====
+Copy-Item .env.docker.example .env
+# Add GEMINI_API_KEY again if the template does not contain it
+docker compose up -d
+docker compose --profile frontend up -d node
+
+
+==== Useful commands ====
+docker compose restart queue (Immediately restarts the queue worker container)
+docker compose exec app php artisan queue:restart (Tells Laravel queue workers to restart gracefully after finishing their current job)

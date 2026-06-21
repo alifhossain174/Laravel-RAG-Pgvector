@@ -497,7 +497,7 @@ docker compose exec app composer install
 docker compose exec app php artisan key:generate
 ```
 
-Install frontend dependencies and create a production asset build. The Node dependencies are also kept in a Docker-only named volume:
+Install frontend dependencies and create a production asset build. Node dependencies and compiled assets are kept in Docker-only named volumes, avoiding Windows filesystem permission conflicts:
 
 ```powershell
 docker compose run --rm node npm install
