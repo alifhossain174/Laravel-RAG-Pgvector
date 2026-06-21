@@ -1,0 +1,88 @@
+x-php-service: &php-service
+  build:
+    context: .
+    dockerfile: docker/php/Dockerfile
+  image: documind-php:local
+  env_file:
+    - .env
+  volumes:
+    - ./:/var/www/html
+    - composer_vendor:/var/www/html/vendor
+
+services:
+  app:
+    <<: *php-service
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:1.30-alpine
+    restart: unless-stopped
+    ports:
+      - ${APP_PORT:-8080}:80
+    volumes:
+      - ./:/var/www/html:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+
+  postgres:
+    image: pgvector/pgvector:pg16-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-documind}
+      POSTGRES_USER: ${DB_USERNAME:-documind}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-documind}
+    ports:
+      - 127.0.0.1:${FORWARD_DB_PORT:-5433}:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/01-pgvector.sql:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  queue:
+    <<: *php-service
+    restart: unless-stopped
+    command:
+      - sh
+      - -c
+      - |
+        until [ -f vendor/autoload.php ]; do
+          echo Waiting for Composer dependencies...
+          sleep 2
+        done
+        exec php artisan queue:work --sleep=3 --tries=3 --timeout=0
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  node:
+    image: node:22-bookworm-slim
+    profiles:
+      - frontend
+    working_dir: /var/www/html
+    environment:
+      CHOKIDAR_USEPOLLING: true
+    command:
+      - sh
+      - -c
+      - npm install && npm run dev -- --host 0.0.0.0
+    ports:
+      - ${VITE_PORT:-5173}:5173
+    volumes:
+      - ./:/var/www/html
+      - node_modules:/var/www/html/node_modules
+
+volumes:
+  composer_vendor:
+  node_modules:
+  postgres_data:

@@ -445,6 +445,125 @@ The interface is designed as a focused SaaS dashboard:
 - Gemini API key
 - SMTP credentials for email verification and password reset emails
 
+## Docker Development on Windows
+
+The Docker setup is additive: the existing XAMPP configuration and Windows binary paths remain unchanged. Docker uses its own PostgreSQL data, Composer dependencies, and Node dependencies in named volumes. The application is available at `http://localhost:8080`, while the Docker PostgreSQL port is exposed on `127.0.0.1:5433` by default to avoid colliding with a PostgreSQL instance already running on Windows.
+
+### Install Docker Desktop
+
+1. Install Docker Desktop for Windows and enable the WSL 2 backend when prompted.
+2. Start Docker Desktop and wait until the Docker engine is running.
+3. From PowerShell in the project directory, verify the installation:
+
+```powershell
+docker version
+docker compose version
+```
+
+Keeping the repository inside the WSL filesystem usually gives the best bind-mount performance, but the stack also works from a Windows path such as an XAMPP `htdocs` directory.
+
+### Create the Docker environment file
+
+Docker Compose reads the project `.env`. For a fresh clone, copy the Docker template:
+
+```powershell
+Copy-Item .env.docker.example .env
+```
+
+If `.env` already contains working XAMPP settings, preserve it before switching environments. No Docker file or command in this project overwrites it automatically:
+
+```powershell
+Copy-Item .env .env.backup
+Copy-Item .env.docker.example .env
+```
+
+Add your `GEMINI_API_KEY` and any local mail settings to `.env`. To return to XAMPP later, restore the backup with `Copy-Item .env.backup .env`.
+
+The Docker template uses the internal service values `DB_HOST=postgres` and `DB_PORT=5432`. Do not change `DB_PORT` to the host-facing `FORWARD_DB_PORT`; containers communicate over the Docker network.
+
+### Build and start the stack
+
+Build the shared PHP image, then start PHP-FPM, Nginx, PostgreSQL with pgvector, and the queue worker:
+
+```powershell
+docker compose build
+docker compose up -d
+```
+
+Install PHP dependencies into the Docker-only Composer volume and generate the application key:
+
+```powershell
+docker compose exec app composer install
+docker compose exec app php artisan key:generate
+```
+
+Install frontend dependencies and create a production asset build. The Node dependencies are also kept in a Docker-only named volume:
+
+```powershell
+docker compose run --rm node npm install
+docker compose run --rm node npm run build
+```
+
+Run the database migrations after Composer dependencies are installed:
+
+```powershell
+docker compose exec app php artisan migrate
+```
+
+Open `http://localhost:8080`. You can inspect service state and logs with:
+
+```powershell
+docker compose ps
+docker compose logs -f app nginx queue postgres
+```
+
+### Optional Vite development server
+
+The `node` service is behind the optional `frontend` profile, so it does not run during a normal `docker compose up -d`. Start Vite with filesystem polling for Windows bind mounts using:
+
+```powershell
+docker compose --profile frontend up -d node
+docker compose logs -f node
+```
+
+Stop only the development server with `docker compose stop node`. For a static frontend instead, rerun `docker compose run --rm node npm run build`.
+
+### Queue worker commands
+
+The queue worker starts with the default stack and waits until `composer install` has created `vendor/autoload.php`. Start it separately or recreate it with:
+
+```powershell
+docker compose up -d queue
+docker compose restart queue
+```
+
+To request Laravel's normal graceful worker restart after code or settings changes, run:
+
+```powershell
+docker compose exec app php artisan queue:restart
+```
+
+The worker container has `restart: unless-stopped`, so Docker starts a fresh worker after the graceful exit.
+
+### Verify Poppler, Tesseract, and pgvector
+
+Check the PDF and OCR binaries inside the PHP container:
+
+```powershell
+docker compose exec app pdftotext -v
+docker compose exec app pdftoppm -v
+docker compose exec app tesseract --version
+docker compose exec app tesseract --list-langs
+```
+
+The image installs English OCR data (`tesseract-ocr-eng`), matching `OCR_LANGUAGE=eng`. Confirm pgvector was initialized in PostgreSQL with:
+
+```powershell
+docker compose exec postgres psql -U documind -d documind -c 'SELECT extversion FROM pg_extension WHERE extname = ''vector'';'
+```
+
+Run the Laravel tests in the PHP container with `docker compose exec app php artisan test`. Stop the stack without deleting database or dependency volumes using `docker compose down`.
+
 ## Installation
 
 Clone the repository and install dependencies:
